@@ -1,10 +1,12 @@
 # Thai Depression Classification - Requirements
 # 
+# Python Version Required: 3.10
+#
 # Installation Guide:
 # 
 # Option 1 (Recommended): Using Conda
 # ----------------------------------
-# conda create -n thai-depression python=3.9
+# conda create -n thai-depression python=3.10
 # conda activate thai-depression
 # conda install -c rapidsai -c conda-forge -c nvidia cuml cupy
 # conda install pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia
@@ -18,9 +20,11 @@
 # pip install -r requirements.txt
 # pip install cupy-cuda11x  (may have compatibility issues)
 #
-# Quick Setup:
+# Quick Setup (Windows):
 # -----------
-# Windows: .\setup.ps1
+# 1. Run: python check_python_version.py  (to verify Python 3.10)
+# 2. Run: .\setup.ps1
+#
 # Linux/Mac: bash setup.sh
 
 # Core ML/DL Frameworks (ติดตั้งแยกตามคำแนะนำด้านบน)

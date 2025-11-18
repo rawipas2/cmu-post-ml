@@ -1,5 +1,32 @@
 # 🚀 START HERE - เริ่มต้นใช้งาน
 
+## ⚠️ ก่อนเริ่มต้น - ตรวจสอบ Python 3.10
+
+โปรเจกต์นี้ต้องการ **Python 3.10** เท่านั้น
+
+### ตรวจสอบเวอร์ชัน Python
+
+```powershell
+python --version
+# ควรแสดง: Python 3.10.x
+```
+
+### ใช้สคริปต์ตรวจสอบ
+
+**Windows - ดับเบิลคลิก:** `check_python.bat`
+
+**หรือรัน:**
+
+```powershell
+python check_python_version.py
+```
+
+### ถ้ายังไม่มี Python 3.10
+
+อ่านคู่มือการติดตั้งที่ `PYTHON_310_GUIDE.md`
+
+---
+
 ## ติดตั้งอัตโนมัติ (แนะนำ)
 
 ### Windows

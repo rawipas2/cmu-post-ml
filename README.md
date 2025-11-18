@@ -23,11 +23,28 @@
 
 ### Software Requirements
 
-- **Python**: 3.8 - 3.10
+- **Python**: 3.10 (Required)
 - **CUDA**: 11.x or higher
 - **cuDNN**: Compatible version with CUDA
 
 ## 🚀 การติดตั้ง
+
+### ขั้นตอนที่ 0: ตรวจสอบ Python 3.10
+
+```bash
+# ตรวจสอบเวอร์ชัน Python
+python --version
+
+# หรือใช้สคริปต์ตรวจสอบ (Windows)
+python check_python_version.py
+# หรือ
+check_python.bat
+```
+
+**หากยังไม่มี Python 3.10:**
+
+- ดาวน์โหลดจาก: https://www.python.org/downloads/release/python-31011/
+- หรือใช้ conda: `conda create -n thai-depression python=3.10`
 
 ### 1. ติดตั้ง CUDA และ cuDNN
 

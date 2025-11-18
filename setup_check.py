@@ -9,11 +9,12 @@ def check_python_version():
     """Check Python version"""
     print("🐍 Checking Python version...")
     version = sys.version_info
-    if version.major == 3 and version.minor >= 8 and version.minor <= 10:
+    if version.major == 3 and version.minor == 10:
         print(f"   ✅ Python {version.major}.{version.minor}.{version.micro}")
         return True
     else:
-        print(f"   ❌ Python {version.major}.{version.minor} (Need 3.8-3.10)")
+        print(f"   ❌ Python {version.major}.{version.minor} (Need Python 3.10)")
+        print(f"   This project requires Python 3.10 specifically")
         return False
 
 

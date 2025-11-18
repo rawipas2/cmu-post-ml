@@ -1,5 +1,42 @@
 # 🚀 Quick Setup Guide
 
+## ขั้นตอนที่ 0: ตรวจสอบ Python 3.10 (สำคัญ!)
+
+โปรเจกต์นี้ต้องการ **Python 3.10** เท่านั้น
+
+### ตรวจสอบเวอร์ชัน Python
+
+```bash
+python --version
+```
+
+### ใช้สคริปต์ตรวจสอบ (Windows)
+
+```bash
+# วิธีที่ 1
+python check_python_version.py
+
+# วิธีที่ 2
+check_python.bat
+```
+
+### หากยังไม่มี Python 3.10
+
+**Windows:**
+
+1. ดาวน์โหลด: https://www.python.org/downloads/release/python-31011/
+2. เลือก "Windows installer (64-bit)"
+3. ติดตั้งและเช็ค "Add Python 3.10 to PATH"
+
+**หรือใช้ Conda:**
+
+```bash
+conda create -n thai-depression python=3.10
+conda activate thai-depression
+```
+
+---
+
 ## วิธีที่ 1: ติดตั้งอัตโนมัติ (แนะนำ)
 
 ### Windows
@@ -25,7 +62,7 @@ chmod +x setup.sh
 
 ```bash
 # 1. สร้าง environment
-conda create -n thai-depression python=3.9
+conda create -n thai-depression python=3.10
 conda activate thai-depression
 
 # 2. ติดตั้ง RAPIDS AI (cuML, cuPy)
