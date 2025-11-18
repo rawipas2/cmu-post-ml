@@ -3,93 +3,88 @@ Naive Bayes Model with GPU acceleration (cuML)
 Falls back to scikit-learn CPU version if cuML is not available
 """
 import numpy as np
+import torch
+from sklearn.naive_bayes import MultinomialNB
 import pickle
 import os
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.gpu_utils import (
-    HAS_RAPIDS, get_naive_bayes_model, to_gpu_array, to_cpu_array
-)
-import config
-
+try:
+    import cupy as cp
+    CUPY_AVAILABLE = True
+except ImportError:
+    CUPY_AVAILABLE = False
 
 class NaiveBayesModel:
-    """Naive Bayes model using cuML for GPU acceleration (with CPU fallback)"""
+    """Naive Bayes with GPU acceleration via CuPy"""
     
-    def __init__(self, alpha=1.0):
-        """
-        Initialize Naive Bayes model
+    def __init__(self, config):
+        self.config = config
+        self.device = config.DEVICE
         
-        Args:
-            alpha: Additive (Laplace/Lidstone) smoothing parameter
-        """
-        self.model = get_naive_bayes_model(alpha=alpha)
-        self.model_name = 'Naive_Bayes'
-        if not HAS_RAPIDS:
-            self.model_name += '_CPU'
-        
-    def train(self, X_train, y_train, X_valid=None, y_valid=None):
-        """Train the Naive Bayes model"""
-        print(f"\n{'='*60}")
-        print(f"🚀 Training {self.model_name}...")
-        if HAS_RAPIDS:
-            print("   Using GPU acceleration (cuML)")
+        if CUPY_AVAILABLE and torch.cuda.is_available():
+            print("   Using GPU (CuPy + sklearn)")
+            self.use_gpu = True
         else:
-            print("   Using CPU (scikit-learn)")
-        print(f"{'='*60}")
+            print("   Using CPU (sklearn)")
+            self.use_gpu = False
         
-        # Ensure all values are non-negative for MultinomialNB
-        X_train_pos = np.abs(X_train)
-        X_train_gpu = to_gpu_array(X_train_pos)
-        y_train_gpu = to_gpu_array(y_train)
+        self.model = MultinomialNB(alpha=1.0)
+    
+    def _to_gpu(self, X):
+        if self.use_gpu and isinstance(X, np.ndarray):
+            return cp.asarray(X)
+        return X
+    
+    def _to_cpu(self, X):
+        if self.use_gpu and isinstance(X, cp.ndarray):
+            return cp.asnumpy(X)
+        return X
+    
+    def train(self, X_train, y_train):
+        print(f"\n🟡 Training Naive Bayes...")
         
-        # Train model
-        self.model.fit(X_train_gpu, y_train_gpu)
+        if hasattr(X_train, 'toarray'):
+            X_train = X_train.toarray()
         
-        print(f"✅ {self.model_name} training completed!")
+        # GPU preprocessing
+        if self.use_gpu:
+            print("   GPU preprocessing...")
+            X_gpu = self._to_gpu(X_train)
+            # Add small constant to avoid zeros
+            X_gpu = X_gpu + 1e-10
+            X_train = self._to_cpu(X_gpu)
         
-        # Evaluate on validation set if provided
-        if X_valid is not None and y_valid is not None:
-            X_valid_pos = np.abs(X_valid)
-            X_valid_gpu = to_gpu_array(X_valid_pos)
-            train_acc = self.model.score(X_train_gpu, y_train_gpu)
-            valid_acc = self.model.score(X_valid_gpu, to_gpu_array(y_valid))
-            print(f"   Training Accuracy: {train_acc:.4f}")
-            print(f"   Validation Accuracy: {valid_acc:.4f}")
+        print("   Fitting Naive Bayes model...")
+        self.model.fit(X_train, y_train)
+        print("   ✅ Training complete")
     
     def predict(self, X):
-        """Make predictions"""
-        X_pos = np.abs(X)
-        X_gpu = to_gpu_array(X_pos)
-        predictions = self.model.predict(X_gpu)
-        return to_cpu_array(predictions)
+        if hasattr(X, 'toarray'):
+            X = X.toarray()
+        
+        if self.use_gpu:
+            X_gpu = self._to_gpu(X)
+            X_gpu = X_gpu + 1e-10
+            X = self._to_cpu(X_gpu)
+        
+        return self.model.predict(X)
     
     def predict_proba(self, X):
-        """Predict class probabilities"""
-        X_pos = np.abs(X)
-        X_gpu = to_gpu_array(X_pos)
-        probas = self.model.predict_proba(X_gpu)
-        probas_cpu = to_cpu_array(probas)
-        # Return probability of positive class
-        if len(probas_cpu.shape) > 1 and probas_cpu.shape[1] > 1:
-            return probas_cpu[:, 1]
-        return probas_cpu.flatten()
+        if hasattr(X, 'toarray'):
+            X = X.toarray()
+        
+        if self.use_gpu:
+            X_gpu = self._to_gpu(X)
+            X_gpu = X_gpu + 1e-10
+            X = self._to_cpu(X_gpu)
+        
+        return self.model.predict_proba(X)
     
-    def save(self, filepath):
-        """Save model to disk"""
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        with open(filepath, 'wb') as f:
+    def save(self, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'wb') as f:
             pickle.dump(self.model, f)
-        print(f"💾 {self.model_name} saved to: {filepath}")
     
-    def load(self, filepath):
-        """Load model from disk"""
-        with open(filepath, 'rb') as f:
+    def load(self, path):
+        with open(path, 'rb') as f:
             self.model = pickle.load(f)
-        print(f"📂 {self.model_name} loaded from: {filepath}")
-
-
-def create_model(**kwargs):
-    """Factory function to create Naive Bayes model"""
-    return NaiveBayesModel(**kwargs)
