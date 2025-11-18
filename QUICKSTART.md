@@ -2,28 +2,51 @@
 
 ## 🚀 เริ่มต้นอย่างรวดเร็ว
 
-### ขั้นตอนที่ 1: ติดตั้ง Dependencies
+### วิธีที่ 1: ติดตั้งอัตโนมัติ (แนะนำ) ⭐
 
 ```powershell
-# สร้าง virtual environment
-python -m venv venv
+# Windows - รัน PowerShell script
+.\setup.ps1
 
-# เปิดใช้งาน
-.\venv\Scripts\Activate.ps1
+# Linux/Mac - รัน bash script
+chmod +x setup.sh
+./setup.sh
+```
 
-# ติดตั้ง PyTorch with CUDA
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+**Script จะทำให้อัตโนมัติ:**
 
-# ติดตั้ง dependencies
-pip install -r requirements.txt
+- ✅ ตรวจสอบ Python version
+- ✅ ตรวจสอบ NVIDIA GPU
+- ✅ สร้าง environment (conda หรือ venv)
+- ✅ ติดตั้ง PyTorch with CUDA
+- ✅ ติดตั้ง RAPIDS AI (cuML, cuPy)
+- ✅ ติดตั้ง dependencies ทั้งหมด
+- ✅ ดาวน์โหลด Thai NLP data
+- ✅ รัน validation check
 
-# ติดตั้ง RAPIDS AI (cuML, cuPy) - แนะนำใช้ conda
-# สร้าง conda environment
+### วิธีที่ 2: ติดตั้งด้วยตนเอง
+
+**แบบ Conda (แนะนำที่สุด):**
+
+```bash
 conda create -n thai-depression python=3.9
 conda activate thai-depression
 conda install -c rapidsai -c conda-forge -c nvidia cuml cupy
-pip install pythainlp scikit-learn matplotlib seaborn pandas
+conda install pytorch torchvision pytorch-cuda=11.8 -c pytorch -c nvidia
+pip install pythainlp scikit-learn matplotlib seaborn pandas tqdm
 ```
+
+**แบบ pip + venv:**
+
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+pip install numpy pandas scikit-learn matplotlib seaborn tqdm pythainlp
+pip install cupy-cuda11x  # อาจมีปัญหา - แนะนำใช้ conda
+```
+
+📖 **ดูรายละเอียดเพิ่มเติม:** `INSTALL.md`
 
 ### ขั้นตอนที่ 2: ตรวจสอบระบบ
 
@@ -31,9 +54,26 @@ pip install pythainlp scikit-learn matplotlib seaborn pandas
 python setup_check.py
 ```
 
+**ต้องผ่านทุก check:**
+
+- ✅ Python 3.8-3.10
+- ✅ CUDA & GPU
+- ✅ cuML (RAPIDS AI)
+- ✅ CuPy
+- ✅ PyThaiNLP
+- ✅ Dependencies
+- ✅ Data files
+
 ### ขั้นตอนที่ 3: เริ่ม Training
 
 ```powershell
+# ถ้าใช้ conda
+conda activate thai-depression
+python train.py
+
+# ถ้าใช้ venv
+.\venv\Scripts\Activate.ps1  # Windows
+source venv/bin/activate      # Linux/Mac
 python train.py
 ```
 

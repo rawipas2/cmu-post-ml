@@ -16,12 +16,18 @@ TRAIN_FILE = os.path.join(DATA_DIR, 'train.json')
 TEST_FILE = os.path.join(DATA_DIR, 'test.json')
 VALID_FILE = os.path.join(DATA_DIR, 'valid.json')
 
-# Device configuration - Force CUDA usage
+# Device configuration - Try CUDA, fallback to CPU if needed
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 if DEVICE != 'cuda':
-    raise RuntimeError("CUDA is not available! This project requires GPU.")
-
-# Model parameters
+    import warnings
+    warnings.warn(
+        "\n⚠️  CUDA is not available! Running on CPU. "
+        "\nFor GPU acceleration, ensure NVIDIA drivers and CUDA are installed."
+    )
+else:
+    print(f"🚀 Configuration loaded. Using device: {DEVICE}")
+    print(f"   GPU: {torch.cuda.get_device_name(0)}")
+    print(f"   Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
 RANDOM_STATE = 42
 MAX_FEATURES = 5000
 MAX_SEQ_LENGTH = 100
