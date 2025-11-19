@@ -41,7 +41,9 @@ class ThaiTextPreprocessor:
         """Fit TF-IDF vectorizer"""
         self.tfidf_vectorizer = TfidfVectorizer(
             max_features=config.MAX_FEATURES,
-            ngram_range=(1, 2)
+            ngram_range=(1, 3),  # เพิ่มจาก (1,2) เป็น (1,3) สำหรับ v1.2.1
+            min_df=2,  # ลด noise จากคำที่ปรากฏน้อย
+            max_df=0.95  # ลด common words
         )
         self.tfidf_vectorizer.fit(texts)
     
@@ -49,7 +51,9 @@ class ThaiTextPreprocessor:
         """Fit Count vectorizer"""
         self.count_vectorizer = CountVectorizer(
             max_features=config.MAX_FEATURES,
-            ngram_range=(1, 2)
+            ngram_range=(1, 3),  # เพิ่มจาก (1,2) เป็น (1,3)
+            min_df=2,
+            max_df=0.95
         )
         self.count_vectorizer.fit(texts)
     

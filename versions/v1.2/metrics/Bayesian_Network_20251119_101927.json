@@ -1,0 +1,10 @@
+{
+    "model_name": "Bayesian_Network",
+    "accuracy": 0.7435692921236291,
+    "precision": 0.7435403566792135,
+    "recall": 0.7435692921236291,
+    "f1_score": 0.7435472528776871,
+    "auc_roc": 0.8292517078250596,
+    "timestamp": "20251119_101927",
+    "version": "v1.2"
+}
