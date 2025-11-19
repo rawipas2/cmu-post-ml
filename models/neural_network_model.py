@@ -1,5 +1,6 @@
 """
 Neural Network Model with PyTorch (GPU-accelerated)
+v1.2.2: Added Focal Loss support for class imbalance
 """
 import torch
 import torch.nn as nn
@@ -7,6 +8,9 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.focal_loss import FocalLoss
 import config
 
 
@@ -39,7 +43,8 @@ class NeuralNetworkModel:
     """Neural Network wrapper with training utilities"""
     
     def __init__(self, input_dim, hidden_dims=[512, 256, 128], 
-                 learning_rate=None, epochs=None, dropout=0.3):
+                 learning_rate=None, epochs=None, dropout=0.3,
+                 use_focal_loss=False):
         """
         Initialize Neural Network model
         
@@ -48,6 +53,7 @@ class NeuralNetworkModel:
             hidden_dims: List of hidden layer dimensions
             learning_rate: Learning rate for optimizer
             epochs: Number of training epochs
+            use_focal_loss: Use Focal Loss instead of BCE (better for imbalance)
         """
         self.model = NeuralNetworkClassifier(
             input_dim=input_dim,
@@ -58,8 +64,15 @@ class NeuralNetworkModel:
         self.learning_rate = learning_rate or config.LEARNING_RATE
         self.epochs = epochs or config.EPOCHS
         self.model_name = 'Neural_Network'
+        self.use_focal_loss = use_focal_loss
         
-        self.criterion = nn.BCELoss()
+        # Choose loss function
+        if use_focal_loss:
+            print("   ✓ Using Focal Loss (better for class imbalance)")
+            self.criterion = FocalLoss(alpha=0.25, gamma=2.0)
+        else:
+            self.criterion = nn.BCELoss()
+        
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         
     def train(self, X_train, y_train, X_valid=None, y_valid=None):

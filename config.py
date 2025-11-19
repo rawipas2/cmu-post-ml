@@ -29,20 +29,20 @@ else:
     print(f"   GPU: {torch.cuda.get_device_name(0)}")
     print(f"   Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
 RANDOM_STATE = 42
-MAX_FEATURES = 10000  # เพิ่มจาก 5000 สำหรับ v1.2.1 - ความละเอียดขึ้น
+MAX_FEATURES = 5000  # ย้อนกลับจาก 10000 - v1.2.2 เน้น model-specific preprocessing
 MAX_SEQ_LENGTH = 100
 EMBEDDING_DIM = 300
-BATCH_SIZE = 16  # ลดจาก 32 เพื่อให้ model เรียนรู้ดีขึ้นจาก features มากขึ้น
-EPOCHS = 150  # เพิ่มจาก 100 เพื่อให้มีเวลาเรียนรู้มากขึ้น (มี early stopping)
-LEARNING_RATE = 0.0003  # ลดลงจาก 0.0005 เพื่อ stability
+BATCH_SIZE = 32  # เพิ่มกลับเป็น 32 เพื่อความเร็ว
+EPOCHS = 100  # ลดกลับเป็น 100 พร้อม early stopping
+LEARNING_RATE = 0.0005  # เพิ่มกลับเพื่อ faster convergence
 
 # Ensemble parameters
-META_MODEL_EPOCHS = 200  # เพิ่มจาก 150
-META_MODEL_LR = 0.0003  # ลดจาก 0.0005 เพื่อ stability
-META_HIDDEN_DIM = 256  # เพิ่มจาก 128 เพื่อ capacity มากขึ้น
+META_MODEL_EPOCHS = 150  # ปรับกลับ
+META_MODEL_LR = 0.0005  # ปรับกลับ
+META_HIDDEN_DIM = 128  # ปรับกลับ
 
 # Version management
-CURRENT_VERSION = "v1.2.1"
+CURRENT_VERSION = "v1.2.2"
 
 # Target accuracy
 TARGET_ACCURACY = 0.80
@@ -50,36 +50,42 @@ TARGET_ACCURACY = 0.80
 # Model-specific hyperparameters
 MODEL_PARAMS = {
     'neural_network': {
-        'hidden_dims': [1024, 512, 256],  # เพิ่ม capacity เพื่อรองรับ features 10000
+        'hidden_dims': [512, 256, 128],  # ย้อนกลับ v1.2.2 - เหมาะกับ 5000 features
         'dropout': 0.5,
-        'epochs': 150,
-        'learning_rate': 0.0002  # ลดลงเพื่อ stability
+        'epochs': 100,
+        'learning_rate': 0.0003,
+        'use_focal_loss': True  # ใหม่! แก้ class imbalance
     },
     'deep_learning': {
-        'hidden_dims': [2048, 1024, 512, 256, 128],  # เพิ่ม capacity
+        'hidden_dims': [1024, 512, 256, 128, 64],  # ย้อนกลับ
         'dropout': 0.6,
-        'epochs': 150,
-        'learning_rate': 0.00015
+        'epochs': 100,
+        'learning_rate': 0.0002,
+        'use_focal_loss': True  # ใหม่!
     },
     'bayesian_network': {
-        'hidden_dims': [512, 256, 128],  # เพิ่ม capacity
-        'epochs': 150,
-        'learning_rate': 0.0002
+        'hidden_dims': [256, 128, 64],  # ย้อนกลับ
+        'epochs': 100,
+        'learning_rate': 0.0003,
+        'use_focal_loss': True  # ใหม่!
     },
     'maximum_entropy': {
         'l2_reg': 0.1,
-        'epochs': 150,
+        'epochs': 100,
         'learning_rate': 0.002,
-        'use_class_weight': True
+        'use_class_weight': True,
+        'use_focal_loss': True  # ใหม่!
     },
     'svm': {
         'kernel': 'linear',
         'C': 1.0,
         'gamma': 'scale',
-        'use_sgd': True
+        'use_sgd': True,
+        'n_features_select': 3000  # ใหม่! Feature selection
     },
     'naive_bayes': {
-        'alpha': 0.5
+        'alpha': 0.5,
+        'use_count': True  # ใหม่! Use Count instead of TF-IDF
     }
 }
 

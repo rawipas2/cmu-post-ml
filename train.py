@@ -1,6 +1,6 @@
 """
 Main Training Script for Thai Depression Classification
-Trains all 6 models and ensemble stacking model
+v1.2.2: Model-specific preprocessing and focal loss
 """
 import os
 import sys
@@ -11,8 +11,10 @@ from utils import (
     load_all_data, evaluate_model, print_metrics,
     plot_confusion_matrix, plot_roc_curve, plot_model_comparison,
     save_results, generate_classification_report,
-    create_version_directory, generate_readme
+    create_version_directory, generate_readme,
+    prepare_data_for_model
 )
+from utils.augmentation import augment_dataset
 from models import (
     svm_model, neural_network_model, deep_learning_model,
     naive_bayes_model, bayesian_network_model, maximum_entropy_model,
@@ -64,7 +66,7 @@ def main():
     """Main training pipeline"""
     
     print("\n" + "="*80)
-    print("🧠 Thai Depression Classification - ML Training Pipeline")
+    print("🧠 Thai Depression Classification - ML Training Pipeline v1.2.2")
     print("="*80 + "\n")
     
     # Create version directory
@@ -73,9 +75,12 @@ def main():
     
     # Load data
     data = load_all_data()
-    X_train = data['X_train']
+    X_train = data['X_train']  # TF-IDF features
     X_valid = data['X_valid']
     X_test = data['X_test']
+    X_train_count = data['X_train_count']  # Count features for Naive Bayes
+    X_valid_count = data['X_valid_count']
+    X_test_count = data['X_test_count']
     y_train = data['y_train']
     y_valid = data['y_valid']
     y_test = data['y_test']
@@ -84,13 +89,36 @@ def main():
     input_dim = X_train.shape[1]
     print(f"📐 Input dimension: {input_dim}\n")
     
+    # Optional: Data augmentation (uncomment to enable)
+    # print("📈 Augmenting training data...")
+    # train_texts, train_labels = augment_dataset(
+    #     data['train_texts'], 
+    #     preprocessor.decode_labels(y_train),
+    #     aug_per_sample=1,
+    #     balance_classes=True
+    # )
+    # # Re-encode and vectorize augmented data
+    # y_train = preprocessor.encode_labels(train_labels)
+    # X_train = preprocessor.transform_tfidf(train_texts)
+    # X_train_count = preprocessor.transform_count(train_texts)
+    
     # Store all models and metrics
     trained_models = []
     all_metrics = []
     
-    # 1. Train SVM
+    # 1. Train SVM (with feature selection)
     print("\n" + "🔵"*40)
     try:
+        print("🔵 Training SVM with feature selection...")
+        
+        # Prepare SVM-specific data
+        X_train_svm = prepare_data_for_model(
+            X_train.copy(), y_train, 'svm', preprocessor
+        )
+        X_test_svm = prepare_data_for_model(
+            X_test.copy(), model_type='svm', preprocessor=preprocessor
+        )
+        
         params = config.MODEL_PARAMS['svm']
         svm = svm_model.SVMModel(
             config,
@@ -99,10 +127,10 @@ def main():
             gamma=params['gamma'],
             use_sgd=params.get('use_sgd', True)
         )
-        svm.train(X_train, y_train)
+        svm.train(X_train_svm, y_train)
         
-        y_pred = svm.predict(X_test)
-        y_pred_proba = svm.predict_proba(X_test)[:, 1]
+        y_pred = svm.predict(X_test_svm)
+        y_pred_proba = svm.predict_proba(X_test_svm)[:, 1]
         
         svm_metrics = evaluate_model(y_test, y_pred, y_pred_proba, 'SVM')
         print_metrics(svm_metrics)
@@ -131,7 +159,7 @@ def main():
         traceback.print_exc()
         print("   Continuing with other models...")
     
-    # 2. Train Neural Network
+    # 2. Train Neural Network (with Focal Loss)
     print("\n" + "🔵"*40)
     try:
         params = config.MODEL_PARAMS['neural_network']
@@ -139,7 +167,8 @@ def main():
             input_dim=input_dim,
             hidden_dims=params['hidden_dims'],
             learning_rate=params['learning_rate'],
-            epochs=params['epochs']
+            epochs=params['epochs'],
+            use_focal_loss=params.get('use_focal_loss', False)
         )
         nn, nn_metrics = train_and_evaluate_model(
             nn, 'Neural_Network', X_train, y_train, X_valid, y_valid,
@@ -153,7 +182,7 @@ def main():
         traceback.print_exc()
         print("   Continuing with other models...")
     
-    # 3. Train Deep Learning
+    # 3. Train Deep Learning (with Focal Loss)
     print("\n" + "🔵"*40)
     try:
         params = config.MODEL_PARAMS['deep_learning']
@@ -161,7 +190,8 @@ def main():
             input_dim=input_dim,
             hidden_dims=params['hidden_dims'],
             learning_rate=params['learning_rate'],
-            epochs=params['epochs']
+            epochs=params['epochs'],
+            use_focal_loss=params.get('use_focal_loss', False)
         )
         dl, dl_metrics = train_and_evaluate_model(
             dl, 'Deep_Learning', X_train, y_train, X_valid, y_valid,
@@ -175,15 +205,21 @@ def main():
         traceback.print_exc()
         print("   Continuing with other models...")
     
-    # 4. Train Naive Bayes
+    # 4. Train Naive Bayes (using Count features)
     print("\n" + "🔵"*40)
     try:
+        print("🔵 Training Naive Bayes with Count features...")
+        
+        # Prepare Naive Bayes-specific data (Count vectorizer)
+        X_train_nb = prepare_data_for_model(X_train_count.copy(), model_type='naive_bayes')
+        X_test_nb = prepare_data_for_model(X_test_count.copy(), model_type='naive_bayes')
+        
         params = config.MODEL_PARAMS['naive_bayes']
         nb = naive_bayes_model.NaiveBayesModel(config, alpha=params['alpha'])
-        nb.train(X_train, y_train)
+        nb.train(X_train_nb, y_train)
         
-        y_pred = nb.predict(X_test)
-        y_pred_proba = nb.predict_proba(X_test)[:, 1]
+        y_pred = nb.predict(X_test_nb)
+        y_pred_proba = nb.predict_proba(X_test_nb)[:, 1]
         
         nb_metrics = evaluate_model(y_test, y_pred, y_pred_proba, 'Naive_Bayes')
         print_metrics(nb_metrics)
@@ -212,7 +248,7 @@ def main():
         traceback.print_exc()
         print("   Continuing with other models...")
     
-    # 5. Train Bayesian Network
+    # 5. Train Bayesian Network (with Focal Loss)
     print("\n" + "🔵"*40)
     try:
         params = config.MODEL_PARAMS['bayesian_network']
@@ -220,7 +256,8 @@ def main():
             input_dim=input_dim,
             hidden_dims=params['hidden_dims'],
             learning_rate=params['learning_rate'],
-            epochs=params['epochs']
+            epochs=params['epochs'],
+            use_focal_loss=params.get('use_focal_loss', False)
         )
         bn, bn_metrics = train_and_evaluate_model(
             bn, 'Bayesian_Network', X_train, y_train, X_valid, y_valid,

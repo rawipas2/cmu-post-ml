@@ -1,5 +1,6 @@
 """
 Bayesian Network Model (Neural Network with Bayesian approach on GPU)
+v1.2.2: Added Focal Loss support
 """
 import torch
 import torch.nn as nn
@@ -7,6 +8,9 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.focal_loss import FocalLoss
 import config
 
 
@@ -72,7 +76,7 @@ class BayesianNetworkModel:
     """Bayesian Network wrapper with training utilities"""
     
     def __init__(self, input_dim, hidden_dims=[256, 128, 64],
-                 learning_rate=None, epochs=None):
+                 learning_rate=None, epochs=None, use_focal_loss=False):
         """
         Initialize Bayesian Network model
         
@@ -81,6 +85,7 @@ class BayesianNetworkModel:
             hidden_dims: List of hidden layer dimensions
             learning_rate: Learning rate for optimizer
             epochs: Number of training epochs
+            use_focal_loss: Use Focal Loss (v1.2.2)
         """
         self.model = BayesianNetworkClassifier(
             input_dim=input_dim,
@@ -90,8 +95,15 @@ class BayesianNetworkModel:
         self.learning_rate = learning_rate or config.LEARNING_RATE
         self.epochs = epochs or config.EPOCHS
         self.model_name = 'Bayesian_Network'
+        self.use_focal_loss = use_focal_loss
         
-        self.criterion = nn.BCELoss()
+        # Choose loss function
+        if use_focal_loss:
+            print("   ✓ Using Focal Loss")
+            self.criterion = FocalLoss(alpha=0.25, gamma=2.0)
+        else:
+            self.criterion = nn.BCELoss()
+        
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         
     def train(self, X_train, y_train, X_valid=None, y_valid=None):

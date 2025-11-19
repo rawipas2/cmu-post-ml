@@ -1,23 +1,26 @@
 """
 Data loading and preprocessing utilities
+v1.2.2: Model-specific data preparation for optimal performance
 """
 import json
 import numpy as np
 import torch
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.preprocessing import LabelEncoder
+from sklearn.feature_selection import chi2, SelectKBest
 from pythainlp.tokenize import word_tokenize
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Optional
 import config
 
 
 class ThaiTextPreprocessor:
-    """Preprocessor for Thai text data"""
+    """Preprocessor for Thai text data with model-specific optimization"""
     
     def __init__(self):
         self.label_encoder = LabelEncoder()
         self.tfidf_vectorizer = None
         self.count_vectorizer = None
+        self.feature_selectors = {}  # แยก selector ตาม model
         
     def load_data(self, filepath: str) -> Tuple[List[str], List[str]]:
         """Load data from JSON file"""
@@ -37,25 +40,54 @@ class ThaiTextPreprocessor:
         """Preprocess list of texts"""
         return [self.tokenize_thai(text) for text in texts]
     
-    def fit_tfidf(self, texts: List[str]):
-        """Fit TF-IDF vectorizer"""
+    def fit_tfidf(self, texts: List[str], model_type: str = 'default'):
+        """Fit TF-IDF vectorizer with model-specific settings"""
+        # Model-specific ngram settings
+        ngram_settings = {
+            'svm': (1, 2),           # Bigrams work well for SVM
+            'naive_bayes': (1, 1),   # Unigrams only for NB (ทำงานดีกว่า)
+            'neural': (1, 2),        # Bigrams for neural nets
+            'deep': (1, 2),          # Bigrams for deep learning
+            'bayesian': (1, 2),      # Bigrams for Bayesian
+            'maxent': (1, 2),        # Bigrams for MaxEnt
+            'default': (1, 2)        # Default bigrams
+        }
+        
+        ngram_range = ngram_settings.get(model_type, (1, 2))
+        
         self.tfidf_vectorizer = TfidfVectorizer(
             max_features=config.MAX_FEATURES,
-            ngram_range=(1, 3),  # เพิ่มจาก (1,2) เป็น (1,3) สำหรับ v1.2.1
-            min_df=2,  # ลด noise จากคำที่ปรากฏน้อย
-            max_df=0.95  # ลด common words
+            ngram_range=ngram_range,
+            min_df=2,
+            max_df=0.95,
+            sublinear_tf=True  # ใช้ log scaling (ดีกับ Thai)
         )
         self.tfidf_vectorizer.fit(texts)
     
-    def fit_count(self, texts: List[str]):
-        """Fit Count vectorizer"""
+    def fit_count(self, texts: List[str], model_type: str = 'default'):
+        """Fit Count vectorizer (best for Naive Bayes)"""
         self.count_vectorizer = CountVectorizer(
             max_features=config.MAX_FEATURES,
-            ngram_range=(1, 3),  # เพิ่มจาก (1,2) เป็น (1,3)
+            ngram_range=(1, 1),  # Unigrams only for count-based
             min_df=2,
             max_df=0.95
         )
         self.count_vectorizer.fit(texts)
+    
+    def fit_feature_selector(self, X: np.ndarray, y: np.ndarray, 
+                            model_type: str, n_features: int = 3000):
+        """Fit feature selector for specific model type"""
+        if model_type not in self.feature_selectors:
+            selector = SelectKBest(chi2, k=min(n_features, X.shape[1]))
+            selector.fit(X, y)
+            self.feature_selectors[model_type] = selector
+            print(f"   ✓ Feature selector for {model_type}: {X.shape[1]} → {n_features}")
+    
+    def apply_feature_selection(self, X: np.ndarray, model_type: str) -> np.ndarray:
+        """Apply feature selection if available"""
+        if model_type in self.feature_selectors:
+            return self.feature_selectors[model_type].transform(X)
+        return X
     
     def transform_tfidf(self, texts: List[str]) -> np.ndarray:
         """Transform texts using TF-IDF"""
@@ -97,15 +129,21 @@ def load_all_data():
     test_texts_processed = preprocessor.preprocess_texts(test_texts)
     
     # Fit vectorizers on training data
-    print("📊 Fitting vectorizers...")
-    preprocessor.fit_tfidf(train_texts_processed)
-    preprocessor.fit_count(train_texts_processed)
+    print("📊 Fitting vectorizers (model-specific)...")
+    preprocessor.fit_tfidf(train_texts_processed, model_type='default')
+    preprocessor.fit_count(train_texts_processed, model_type='naive_bayes')
     
-    # Transform texts
+    # Transform texts (default: TF-IDF)
     print("🔄 Transforming texts...")
     X_train = preprocessor.transform_tfidf(train_texts_processed)
     X_valid = preprocessor.transform_tfidf(valid_texts_processed)
     X_test = preprocessor.transform_tfidf(test_texts_processed)
+    
+    # For Naive Bayes: Count-based features
+    print("🔄 Preparing Count features for Naive Bayes...")
+    X_train_count = preprocessor.transform_count(train_texts_processed)
+    X_valid_count = preprocessor.transform_count(valid_texts_processed)
+    X_test_count = preprocessor.transform_count(test_texts_processed)
     
     # Encode labels
     print("🏷️  Encoding labels...")
@@ -119,6 +157,9 @@ def load_all_data():
         'X_train': X_train,
         'X_valid': X_valid,
         'X_test': X_test,
+        'X_train_count': X_train_count,  # For Naive Bayes
+        'X_valid_count': X_valid_count,
+        'X_test_count': X_test_count,
         'y_train': y_train,
         'y_valid': y_valid,
         'y_test': y_test,
@@ -134,13 +175,16 @@ def to_gpu_tensor(data: np.ndarray, dtype=torch.float32) -> torch.Tensor:
     return torch.tensor(data, dtype=dtype).to(config.DEVICE)
 
 
-def prepare_data_for_model(X, model_type='neural'):
+def prepare_data_for_model(X, y=None, model_type='neural', preprocessor=None):
     """
     Prepare data specifically for different model types
+    v1.2.2: Enhanced with feature selection and model-specific optimization
     
     Args:
         X: Input data (numpy array or sparse matrix)
-        model_type: Type of model ('neural', 'svm', 'naive_bayes')
+        y: Labels (for feature selection)
+        model_type: Type of model ('neural', 'svm', 'naive_bayes', 'deep', 'bayesian', 'maxent')
+        preprocessor: Preprocessor instance (for feature selection)
     
     Returns:
         Processed data suitable for the model
@@ -149,24 +193,29 @@ def prepare_data_for_model(X, model_type='neural'):
     if hasattr(X, 'toarray'):
         X = X.toarray()
     
+    # Model-specific preprocessing
     if model_type == 'naive_bayes':
         # Naive Bayes requires non-negative features
-        # Shift all values to positive range
-        min_val = np.min(X)
-        if min_val < 0:
-            X = X - min_val + 1e-10
-        else:
-            X = X + 1e-10
+        # Count features are already non-negative, but ensure
+        X = np.abs(X) + 1e-10
     
     elif model_type == 'svm':
-        # SVM benefits from normalized features
-        mean = np.mean(X, axis=0)
-        std = np.std(X, axis=0) + 1e-8
-        X = (X - mean) / std
+        # SVM: Feature selection + normalization
+        if preprocessor and y is not None:
+            # Fit feature selector on training data
+            n_features = config.MODEL_PARAMS['svm'].get('n_features_select', 3000)
+            if 'svm' not in preprocessor.feature_selectors:
+                preprocessor.fit_feature_selector(X, y, 'svm', n_features)
+            # Apply selection
+            X = preprocessor.apply_feature_selection(X, 'svm')
+        
+        # L2 normalization
+        from sklearn.preprocessing import normalize
+        X = normalize(X, norm='l2')
     
     elif model_type in ['neural', 'deep', 'bayesian', 'maxent']:
-        # Neural networks work better with standardized data
-        # But TF-IDF is already normalized, so just ensure dtype
+        # Neural networks: standardization
+        # TF-IDF already normalized, just ensure dtype
         X = X.astype(np.float32)
     
     return X

@@ -1,5 +1,6 @@
 """
-Deep Learning Model with PyTorch (Deeper architecture with GPU acceleration)
+Deep Learning Model with Multiple Hidden Layers (GPU-accelerated)
+v1.2.2: Added Focal Loss support
 """
 import torch
 import torch.nn as nn
@@ -7,6 +8,9 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.focal_loss import FocalLoss
 import config
 
 
