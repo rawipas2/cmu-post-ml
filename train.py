@@ -96,7 +96,8 @@ def main():
             config,
             kernel=params['kernel'],
             C=params['C'],
-            gamma=params['gamma']
+            gamma=params['gamma'],
+            use_sgd=params.get('use_sgd', True)
         )
         svm.train(X_train, y_train)
         

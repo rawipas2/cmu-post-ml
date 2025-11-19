@@ -72,9 +72,10 @@ MODEL_PARAMS = {
         'learning_rate': 0.001
     },
     'svm': {
-        'kernel': 'rbf',
-        'C': 10.0,
-        'gamma': 'scale'
+        'kernel': 'linear',  # linear เร็วกว่า rbf มาก
+        'C': 1.0,
+        'gamma': 'scale',
+        'use_sgd': True  # ใช้ SGDClassifier (เร็วที่สุดสำหรับ large dataset)
     },
     'naive_bayes': {
         'alpha': 0.5
