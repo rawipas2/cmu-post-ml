@@ -17,7 +17,7 @@ except ImportError:
 class NaiveBayesModel:
     """Naive Bayes with GPU acceleration via CuPy"""
     
-    def __init__(self, config):
+    def __init__(self, config, alpha=1.0):
         self.config = config
         self.device = config.DEVICE
         
@@ -28,7 +28,7 @@ class NaiveBayesModel:
             print("   Using CPU (sklearn)")
             self.use_gpu = False
         
-        self.model = MultinomialNB(alpha=1.0)
+        self.model = MultinomialNB(alpha=alpha)
     
     def _to_gpu(self, X):
         if self.use_gpu and isinstance(X, np.ndarray):

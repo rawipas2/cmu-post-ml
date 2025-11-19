@@ -32,19 +32,54 @@ RANDOM_STATE = 42
 MAX_FEATURES = 5000
 MAX_SEQ_LENGTH = 100
 EMBEDDING_DIM = 300
-BATCH_SIZE = 64
-EPOCHS = 50
-LEARNING_RATE = 0.001
+BATCH_SIZE = 32
+EPOCHS = 100
+LEARNING_RATE = 0.0005
 
 # Ensemble parameters
-META_MODEL_EPOCHS = 100
-META_MODEL_LR = 0.001
+META_MODEL_EPOCHS = 150
+META_MODEL_LR = 0.0005
+META_HIDDEN_DIM = 128
 
 # Version management
-CURRENT_VERSION = "v1.0"
+CURRENT_VERSION = "v1.1"
 
 # Target accuracy
 TARGET_ACCURACY = 0.80
+
+# Model-specific hyperparameters
+MODEL_PARAMS = {
+    'neural_network': {
+        'hidden_dims': [512, 256, 128],
+        'dropout': 0.4,
+        'epochs': 100,
+        'learning_rate': 0.0005
+    },
+    'deep_learning': {
+        'hidden_dims': [1024, 512, 256, 128, 64],
+        'dropout': 0.5,
+        'epochs': 100,
+        'learning_rate': 0.0003
+    },
+    'bayesian_network': {
+        'hidden_dims': [256, 128, 64],
+        'epochs': 100,
+        'learning_rate': 0.0005
+    },
+    'maximum_entropy': {
+        'l2_reg': 0.01,
+        'epochs': 100,
+        'learning_rate': 0.001
+    },
+    'svm': {
+        'kernel': 'rbf',
+        'C': 10.0,
+        'gamma': 'scale'
+    },
+    'naive_bayes': {
+        'alpha': 0.5
+    }
+}
 
 # Model names
 MODELS = [

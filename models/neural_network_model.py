@@ -39,7 +39,7 @@ class NeuralNetworkModel:
     """Neural Network wrapper with training utilities"""
     
     def __init__(self, input_dim, hidden_dims=[512, 256, 128], 
-                 learning_rate=None, epochs=None):
+                 learning_rate=None, epochs=None, dropout=0.3):
         """
         Initialize Neural Network model
         
@@ -51,7 +51,8 @@ class NeuralNetworkModel:
         """
         self.model = NeuralNetworkClassifier(
             input_dim=input_dim,
-            hidden_dims=hidden_dims
+            hidden_dims=hidden_dims,
+            dropout=dropout
         ).to(config.DEVICE)
         
         self.learning_rate = learning_rate or config.LEARNING_RATE

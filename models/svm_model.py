@@ -18,7 +18,7 @@ except ImportError:
 class SVMModel:
     """Support Vector Machine with GPU acceleration via CuPy"""
     
-    def __init__(self, config):
+    def __init__(self, config, kernel='rbf', C=1.0, gamma='scale'):
         self.config = config
         self.device = config.DEVICE
         
@@ -32,9 +32,9 @@ class SVMModel:
         
         # SVM parameters
         self.model = SVC(
-            kernel='rbf',
-            C=1.0,
-            gamma='scale',
+            kernel=kernel,
+            C=C,
+            gamma=gamma,
             probability=True,
             cache_size=1000,
             verbose=False,

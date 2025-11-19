@@ -13,7 +13,7 @@ import config
 class StackingMetaLearner(nn.Module):
     """Meta-learner for stacking ensemble"""
     
-    def __init__(self, n_models=6, hidden_dim=64):
+    def __init__(self, n_models=6, hidden_dim=128):
         """
         Initialize meta-learner
         
@@ -27,10 +27,13 @@ class StackingMetaLearner(nn.Module):
             nn.Linear(n_models, hidden_dim),
             nn.ReLU(),
             nn.BatchNorm1d(hidden_dim),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_dim, 32),
+            nn.Dropout(0.4),
+            nn.Linear(hidden_dim, 64),
             nn.ReLU(),
-            nn.BatchNorm1d(32),
+            nn.BatchNorm1d(64),
+            nn.Dropout(0.3),
+            nn.Linear(64, 32),
+            nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(32, 1),
             nn.Sigmoid()
@@ -43,7 +46,7 @@ class StackingMetaLearner(nn.Module):
 class EnsembleStackingModel:
     """Stacking ensemble combining predictions from multiple models"""
     
-    def __init__(self, base_models, learning_rate=None, epochs=None):
+    def __init__(self, base_models, learning_rate=None, epochs=None, hidden_dim=None):
         """
         Initialize Ensemble Stacking model
         
@@ -51,12 +54,16 @@ class EnsembleStackingModel:
             base_models: List of trained base models
             learning_rate: Learning rate for meta-learner
             epochs: Number of epochs for meta-learner
+            hidden_dim: Hidden dimension for meta-learner
         """
         self.base_models = base_models
         self.n_models = len(base_models)
         
+        meta_hidden = hidden_dim or getattr(config, 'META_HIDDEN_DIM', 128)
+        
         self.meta_learner = StackingMetaLearner(
-            n_models=self.n_models
+            n_models=self.n_models,
+            hidden_dim=meta_hidden
         ).to(config.DEVICE)
         
         self.learning_rate = learning_rate or config.META_MODEL_LR
@@ -66,7 +73,11 @@ class EnsembleStackingModel:
         self.criterion = nn.BCELoss()
         self.optimizer = optim.Adam(
             self.meta_learner.parameters(), 
-            lr=self.learning_rate
+            lr=self.learning_rate,
+            weight_decay=1e-5
+        )
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, mode='min', factor=0.5, patience=10, verbose=True
         )
         
     def _get_base_predictions(self, X, use_proba=True):
@@ -113,16 +124,23 @@ class EnsembleStackingModel:
                 outputs = self.meta_learner(batch_X)
                 loss = self.criterion(outputs, batch_y)
                 loss.backward()
+                
+                # Gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.meta_learner.parameters(), max_norm=1.0)
+                
                 self.optimizer.step()
                 total_loss += loss.item()
             
             avg_loss = total_loss / len(train_loader)
             
             # Validation
-            if X_valid is not None and y_valid is not None and epoch % 20 == 0:
+            if X_valid is not None and y_valid is not None:
                 val_loss = self._validate(X_valid, y_valid)
-                print(f"   Epoch [{epoch+1}/{self.epochs}] - "
-                      f"Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}")
+                self.scheduler.step(val_loss)
+                
+                if epoch % 20 == 0:
+                    print(f"   Epoch [{epoch+1}/{self.epochs}] - "
+                          f"Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}")
                 
                 if val_loss < best_val_loss:
                     best_val_loss = val_loss
@@ -179,6 +197,7 @@ class EnsembleStackingModel:
         torch.save({
             'meta_learner_state_dict': self.meta_learner.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict(),
             'n_models': self.n_models
         }, filepath)
         print(f"💾 {self.model_name} saved to: {filepath}")
@@ -188,6 +207,8 @@ class EnsembleStackingModel:
         checkpoint = torch.load(filepath)
         self.meta_learner.load_state_dict(checkpoint['meta_learner_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        if 'scheduler_state_dict' in checkpoint:
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         self.meta_learner.to(config.DEVICE)
         print(f"📂 {self.model_name} loaded from: {filepath}")
 

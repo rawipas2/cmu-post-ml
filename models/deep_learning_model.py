@@ -39,7 +39,7 @@ class DeepLearningModel:
     """Deep Learning wrapper with training utilities"""
     
     def __init__(self, input_dim, hidden_dims=[1024, 512, 256, 128, 64],
-                 learning_rate=None, epochs=None):
+                 learning_rate=None, epochs=None, dropout=0.4):
         """
         Initialize Deep Learning model
         
@@ -51,7 +51,8 @@ class DeepLearningModel:
         """
         self.model = DeepLearningClassifier(
             input_dim=input_dim,
-            hidden_dims=hidden_dims
+            hidden_dims=hidden_dims,
+            dropout=dropout
         ).to(config.DEVICE)
         
         self.learning_rate = learning_rate or config.LEARNING_RATE

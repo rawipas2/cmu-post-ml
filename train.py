@@ -91,23 +91,54 @@ def main():
     # 1. Train SVM
     print("\n" + "🔵"*40)
     try:
-        svm = svm_model.create_model(kernel='rbf', C=1.0)
-        svm, svm_metrics = train_and_evaluate_model(
-            svm, 'SVM', X_train, y_train, X_valid, y_valid, 
-            X_test, y_test, version_dir, preprocessor
+        params = config.MODEL_PARAMS['svm']
+        svm = svm_model.SVMModel(
+            config,
+            kernel=params['kernel'],
+            C=params['C'],
+            gamma=params['gamma']
         )
+        svm.train(X_train, y_train)
+        
+        y_pred = svm.predict(X_test)
+        y_pred_proba = svm.predict_proba(X_test)[:, 1]
+        
+        svm_metrics = evaluate_model(y_test, y_pred, y_pred_proba, 'SVM')
+        print_metrics(svm_metrics)
+        
+        # Save visualizations
+        plots_dir = os.path.join(version_dir, 'plots')
+        cm_path = os.path.join(plots_dir, 'SVM_confusion_matrix.png')
+        plot_confusion_matrix(y_test, y_pred, 'SVM', cm_path)
+        roc_path = os.path.join(plots_dir, 'SVM_roc_curve.png')
+        plot_roc_curve(y_test, y_pred_proba, 'SVM', roc_path)
+        
+        # Save metrics and model
+        metrics_dir = os.path.join(version_dir, 'metrics')
+        save_results(svm_metrics, metrics_dir, 'SVM')
+        report_path = os.path.join(plots_dir, 'SVM_classification_report.txt')
+        generate_classification_report(y_test, y_pred, preprocessor, report_path)
+        
+        model_path = os.path.join(version_dir, 'models', 'SVM.pkl')
+        svm.save(model_path)
+        
         trained_models.append(svm)
         all_metrics.append(svm_metrics)
     except Exception as e:
         print(f"⚠️ SVM training failed: {e}")
+        import traceback
+        traceback.print_exc()
         print("   Continuing with other models...")
     
     # 2. Train Neural Network
     print("\n" + "🔵"*40)
     try:
+        params = config.MODEL_PARAMS['neural_network']
         nn = neural_network_model.create_model(
             input_dim=input_dim,
-            hidden_dims=[512, 256, 128]
+            hidden_dims=params['hidden_dims'],
+            learning_rate=params['learning_rate'],
+            epochs=params['epochs']
         )
         nn, nn_metrics = train_and_evaluate_model(
             nn, 'Neural_Network', X_train, y_train, X_valid, y_valid,
@@ -117,14 +148,19 @@ def main():
         all_metrics.append(nn_metrics)
     except Exception as e:
         print(f"⚠️ Neural Network training failed: {e}")
+        import traceback
+        traceback.print_exc()
         print("   Continuing with other models...")
     
     # 3. Train Deep Learning
     print("\n" + "🔵"*40)
     try:
+        params = config.MODEL_PARAMS['deep_learning']
         dl = deep_learning_model.create_model(
             input_dim=input_dim,
-            hidden_dims=[1024, 512, 256, 128, 64]
+            hidden_dims=params['hidden_dims'],
+            learning_rate=params['learning_rate'],
+            epochs=params['epochs']
         )
         dl, dl_metrics = train_and_evaluate_model(
             dl, 'Deep_Learning', X_train, y_train, X_valid, y_valid,
@@ -134,28 +170,56 @@ def main():
         all_metrics.append(dl_metrics)
     except Exception as e:
         print(f"⚠️ Deep Learning training failed: {e}")
+        import traceback
+        traceback.print_exc()
         print("   Continuing with other models...")
     
     # 4. Train Naive Bayes
     print("\n" + "🔵"*40)
     try:
-        nb = naive_bayes_model.create_model(alpha=1.0)
-        nb, nb_metrics = train_and_evaluate_model(
-            nb, 'Naive_Bayes', X_train, y_train, X_valid, y_valid,
-            X_test, y_test, version_dir, preprocessor
-        )
+        params = config.MODEL_PARAMS['naive_bayes']
+        nb = naive_bayes_model.NaiveBayesModel(config, alpha=params['alpha'])
+        nb.train(X_train, y_train)
+        
+        y_pred = nb.predict(X_test)
+        y_pred_proba = nb.predict_proba(X_test)[:, 1]
+        
+        nb_metrics = evaluate_model(y_test, y_pred, y_pred_proba, 'Naive_Bayes')
+        print_metrics(nb_metrics)
+        
+        # Save visualizations
+        plots_dir = os.path.join(version_dir, 'plots')
+        cm_path = os.path.join(plots_dir, 'Naive_Bayes_confusion_matrix.png')
+        plot_confusion_matrix(y_test, y_pred, 'Naive_Bayes', cm_path)
+        roc_path = os.path.join(plots_dir, 'Naive_Bayes_roc_curve.png')
+        plot_roc_curve(y_test, y_pred_proba, 'Naive_Bayes', roc_path)
+        
+        # Save metrics and model
+        metrics_dir = os.path.join(version_dir, 'metrics')
+        save_results(nb_metrics, metrics_dir, 'Naive_Bayes')
+        report_path = os.path.join(plots_dir, 'Naive_Bayes_classification_report.txt')
+        generate_classification_report(y_test, y_pred, preprocessor, report_path)
+        
+        model_path = os.path.join(version_dir, 'models', 'Naive_Bayes.pkl')
+        nb.save(model_path)
+        
         trained_models.append(nb)
         all_metrics.append(nb_metrics)
     except Exception as e:
         print(f"⚠️ Naive Bayes training failed: {e}")
+        import traceback
+        traceback.print_exc()
         print("   Continuing with other models...")
     
     # 5. Train Bayesian Network
     print("\n" + "🔵"*40)
     try:
+        params = config.MODEL_PARAMS['bayesian_network']
         bn = bayesian_network_model.create_model(
             input_dim=input_dim,
-            hidden_dims=[256, 128, 64]
+            hidden_dims=params['hidden_dims'],
+            learning_rate=params['learning_rate'],
+            epochs=params['epochs']
         )
         bn, bn_metrics = train_and_evaluate_model(
             bn, 'Bayesian_Network', X_train, y_train, X_valid, y_valid,
@@ -165,14 +229,19 @@ def main():
         all_metrics.append(bn_metrics)
     except Exception as e:
         print(f"⚠️ Bayesian Network training failed: {e}")
+        import traceback
+        traceback.print_exc()
         print("   Continuing with other models...")
     
     # 6. Train Maximum Entropy
     print("\n" + "🔵"*40)
     try:
+        params = config.MODEL_PARAMS['maximum_entropy']
         me = maximum_entropy_model.create_model(
             input_dim=input_dim,
-            l2_reg=0.01
+            l2_reg=params['l2_reg'],
+            learning_rate=params['learning_rate'],
+            epochs=params['epochs']
         )
         me, me_metrics = train_and_evaluate_model(
             me, 'Maximum_Entropy', X_train, y_train, X_valid, y_valid,
@@ -182,6 +251,8 @@ def main():
         all_metrics.append(me_metrics)
     except Exception as e:
         print(f"⚠️ Maximum Entropy training failed: {e}")
+        import traceback
+        traceback.print_exc()
         print("   Continuing with other models...")
     
     # 7. Train Ensemble Stacking
