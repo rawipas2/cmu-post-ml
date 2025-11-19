@@ -28,12 +28,12 @@ class BayesianLayer(nn.Module):
         if self.training or sample:
             # Sample weights
             weight_sigma = torch.log1p(torch.exp(self.weight_rho))
-            weight_epsilon = torch.randn_like(self.weight_sigma)
+            weight_epsilon = torch.randn_like(weight_sigma)
             weight = self.weight_mu + weight_sigma * weight_epsilon
             
             # Sample biases
             bias_sigma = torch.log1p(torch.exp(self.bias_rho))
-            bias_epsilon = torch.randn_like(self.bias_sigma)
+            bias_epsilon = torch.randn_like(bias_sigma)
             bias = self.bias_mu + bias_sigma * bias_epsilon
         else:
             weight = self.weight_mu

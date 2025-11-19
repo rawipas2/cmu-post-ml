@@ -21,6 +21,9 @@ class SVMModel:
     def __init__(self, config, kernel='rbf', C=1.0, gamma='scale'):
         self.config = config
         self.device = config.DEVICE
+        self.kernel = kernel
+        self.C = C
+        self.gamma = gamma
         
         # ใช้ CuPy ถ้ามี, ถ้าไม่มีใช้ CPU
         if CUPY_AVAILABLE and torch.cuda.is_available():
@@ -29,6 +32,10 @@ class SVMModel:
         else:
             print("   Using CPU (sklearn)")
             self.use_gpu = False
+        
+        # Store normalization parameters
+        self.mean_ = None
+        self.std_ = None
         
         # SVM parameters
         self.model = SVC(
@@ -65,11 +72,16 @@ class SVMModel:
         if self.use_gpu:
             print("   GPU preprocessing...")
             X_gpu = self._to_gpu(X_train)
-            # Normalize on GPU
-            mean = cp.mean(X_gpu, axis=0)
-            std = cp.std(X_gpu, axis=0) + 1e-8
-            X_gpu = (X_gpu - mean) / std
+            # Normalize on GPU and store parameters
+            self.mean_ = cp.mean(X_gpu, axis=0)
+            self.std_ = cp.std(X_gpu, axis=0) + 1e-8
+            X_gpu = (X_gpu - self.mean_) / self.std_
             X_train = self._to_cpu(X_gpu)
+        else:
+            # CPU normalization
+            self.mean_ = np.mean(X_train, axis=0)
+            self.std_ = np.std(X_train, axis=0) + 1e-8
+            X_train = (X_train - self.mean_) / self.std_
         
         # Train on CPU (sklearn SVM)
         print("   Fitting SVM model...")
@@ -81,13 +93,13 @@ class SVMModel:
         if hasattr(X, 'toarray'):
             X = X.toarray()
         
-        # GPU preprocessing
-        if self.use_gpu:
+        # GPU preprocessing with stored normalization
+        if self.use_gpu and self.mean_ is not None:
             X_gpu = self._to_gpu(X)
-            mean = cp.mean(X_gpu, axis=0)
-            std = cp.std(X_gpu, axis=0) + 1e-8
-            X_gpu = (X_gpu - mean) / std
+            X_gpu = (X_gpu - self.mean_) / self.std_
             X = self._to_cpu(X_gpu)
+        elif self.mean_ is not None:
+            X = (X - self._to_cpu(self.mean_) if self.use_gpu else self.mean_) / (self._to_cpu(self.std_) if self.use_gpu else self.std_)
         
         return self.model.predict(X)
     
@@ -96,23 +108,42 @@ class SVMModel:
         if hasattr(X, 'toarray'):
             X = X.toarray()
         
-        # GPU preprocessing
-        if self.use_gpu:
+        # GPU preprocessing with stored normalization
+        if self.use_gpu and self.mean_ is not None:
             X_gpu = self._to_gpu(X)
-            mean = cp.mean(X_gpu, axis=0)
-            std = cp.std(X_gpu, axis=0) + 1e-8
-            X_gpu = (X_gpu - mean) / std
+            X_gpu = (X_gpu - self.mean_) / self.std_
             X = self._to_cpu(X_gpu)
+        elif self.mean_ is not None:
+            X = (X - self._to_cpu(self.mean_) if self.use_gpu else self.mean_) / (self._to_cpu(self.std_) if self.use_gpu else self.std_)
         
         return self.model.predict_proba(X)
     
     def save(self, path):
         """Save model"""
         os.makedirs(os.path.dirname(path), exist_ok=True)
+        save_dict = {
+            'model': self.model,
+            'mean': self._to_cpu(self.mean_) if self.use_gpu and self.mean_ is not None else self.mean_,
+            'std': self._to_cpu(self.std_) if self.use_gpu and self.std_ is not None else self.std_,
+            'kernel': self.kernel,
+            'C': self.C,
+            'gamma': self.gamma
+        }
         with open(path, 'wb') as f:
-            pickle.dump(self.model, f)
+            pickle.dump(save_dict, f)
     
     def load(self, path):
         """Load model"""
         with open(path, 'rb') as f:
-            self.model = pickle.load(f)
+            save_dict = pickle.load(f)
+        
+        if isinstance(save_dict, dict):
+            self.model = save_dict['model']
+            self.mean_ = self._to_gpu(save_dict['mean']) if self.use_gpu else save_dict['mean']
+            self.std_ = self._to_gpu(save_dict['std']) if self.use_gpu else save_dict['std']
+            self.kernel = save_dict.get('kernel', 'rbf')
+            self.C = save_dict.get('C', 1.0)
+            self.gamma = save_dict.get('gamma', 'scale')
+        else:
+            # Backward compatibility
+            self.model = save_dict

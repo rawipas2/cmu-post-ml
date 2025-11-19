@@ -43,16 +43,28 @@ class NaiveBayesModel:
     def train(self, X_train, y_train):
         print(f"\n🟡 Training Naive Bayes...")
         
+        # Convert to dense if sparse
         if hasattr(X_train, 'toarray'):
             X_train = X_train.toarray()
         
-        # GPU preprocessing
+        # Naive Bayes requires non-negative features
+        # Shift to make all values positive
         if self.use_gpu:
             print("   GPU preprocessing...")
             X_gpu = self._to_gpu(X_train)
-            # Add small constant to avoid zeros
-            X_gpu = X_gpu + 1e-10
+            # Shift to positive values
+            min_val = cp.min(X_gpu)
+            if min_val < 0:
+                X_gpu = X_gpu - min_val + 1e-10
+            else:
+                X_gpu = X_gpu + 1e-10
             X_train = self._to_cpu(X_gpu)
+        else:
+            min_val = np.min(X_train)
+            if min_val < 0:
+                X_train = X_train - min_val + 1e-10
+            else:
+                X_train = X_train + 1e-10
         
         print("   Fitting Naive Bayes model...")
         self.model.fit(X_train, y_train)
@@ -64,8 +76,18 @@ class NaiveBayesModel:
         
         if self.use_gpu:
             X_gpu = self._to_gpu(X)
-            X_gpu = X_gpu + 1e-10
+            min_val = cp.min(X_gpu)
+            if min_val < 0:
+                X_gpu = X_gpu - min_val + 1e-10
+            else:
+                X_gpu = X_gpu + 1e-10
             X = self._to_cpu(X_gpu)
+        else:
+            min_val = np.min(X)
+            if min_val < 0:
+                X = X - min_val + 1e-10
+            else:
+                X = X + 1e-10
         
         return self.model.predict(X)
     
@@ -75,8 +97,18 @@ class NaiveBayesModel:
         
         if self.use_gpu:
             X_gpu = self._to_gpu(X)
-            X_gpu = X_gpu + 1e-10
+            min_val = cp.min(X_gpu)
+            if min_val < 0:
+                X_gpu = X_gpu - min_val + 1e-10
+            else:
+                X_gpu = X_gpu + 1e-10
             X = self._to_cpu(X_gpu)
+        else:
+            min_val = np.min(X)
+            if min_val < 0:
+                X = X - min_val + 1e-10
+            else:
+                X = X + 1e-10
         
         return self.model.predict_proba(X)
     

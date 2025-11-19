@@ -128,3 +128,41 @@ def load_all_data():
 def to_gpu_tensor(data: np.ndarray, dtype=torch.float32) -> torch.Tensor:
     """Convert numpy array to GPU tensor"""
     return torch.tensor(data, dtype=dtype).to(config.DEVICE)
+
+
+def prepare_data_for_model(X, model_type='neural'):
+    """
+    Prepare data specifically for different model types
+    
+    Args:
+        X: Input data (numpy array or sparse matrix)
+        model_type: Type of model ('neural', 'svm', 'naive_bayes')
+    
+    Returns:
+        Processed data suitable for the model
+    """
+    # Convert sparse to dense if needed
+    if hasattr(X, 'toarray'):
+        X = X.toarray()
+    
+    if model_type == 'naive_bayes':
+        # Naive Bayes requires non-negative features
+        # Shift all values to positive range
+        min_val = np.min(X)
+        if min_val < 0:
+            X = X - min_val + 1e-10
+        else:
+            X = X + 1e-10
+    
+    elif model_type == 'svm':
+        # SVM benefits from normalized features
+        mean = np.mean(X, axis=0)
+        std = np.std(X, axis=0) + 1e-8
+        X = (X - mean) / std
+    
+    elif model_type in ['neural', 'deep', 'bayesian', 'maxent']:
+        # Neural networks work better with standardized data
+        # But TF-IDF is already normalized, so just ensure dtype
+        X = X.astype(np.float32)
+    
+    return X
