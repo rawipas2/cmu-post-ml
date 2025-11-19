@@ -108,6 +108,10 @@ class BayesianNetworkModel:
         train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, 
                                  shuffle=True)
         
+        best_val_loss = float('inf')
+        patience_counter = 0
+        patience = 15
+        
         for epoch in range(self.epochs):
             self.model.train()
             total_loss = 0
@@ -117,16 +121,32 @@ class BayesianNetworkModel:
                 outputs = self.model(batch_X)
                 loss = self.criterion(outputs, batch_y)
                 loss.backward()
+                
+                # Gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                
                 self.optimizer.step()
                 total_loss += loss.item()
             
             avg_loss = total_loss / len(train_loader)
             
             # Validation
-            if X_valid is not None and y_valid is not None and epoch % 10 == 0:
+            if X_valid is not None and y_valid is not None:
                 val_loss = self._validate(X_valid, y_valid)
-                print(f"   Epoch [{epoch+1}/{self.epochs}] - "
-                      f"Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}")
+                
+                if epoch % 10 == 0:
+                    print(f"   Epoch [{epoch+1}/{self.epochs}] - "
+                          f"Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}")
+                
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+                
+                if patience_counter >= patience:
+                    print(f"   Early stopping at epoch {epoch+1}")
+                    break
             elif epoch % 10 == 0:
                 print(f"   Epoch [{epoch+1}/{self.epochs}] - Train Loss: {avg_loss:.4f}")
         

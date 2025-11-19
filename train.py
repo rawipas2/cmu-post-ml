@@ -242,7 +242,8 @@ def main():
             input_dim=input_dim,
             l2_reg=params['l2_reg'],
             learning_rate=params['learning_rate'],
-            epochs=params['epochs']
+            epochs=params['epochs'],
+            use_class_weight=params.get('use_class_weight', True)
         )
         me, me_metrics = train_and_evaluate_model(
             me, 'Maximum_Entropy', X_train, y_train, X_valid, y_valid,

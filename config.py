@@ -42,7 +42,7 @@ META_MODEL_LR = 0.0005
 META_HIDDEN_DIM = 128
 
 # Version management
-CURRENT_VERSION = "v1.1"
+CURRENT_VERSION = "v1.2"
 
 # Target accuracy
 TARGET_ACCURACY = 0.80
@@ -51,25 +51,26 @@ TARGET_ACCURACY = 0.80
 MODEL_PARAMS = {
     'neural_network': {
         'hidden_dims': [512, 256, 128],
-        'dropout': 0.4,
+        'dropout': 0.5,  # เพิ่มจาก 0.4
         'epochs': 100,
-        'learning_rate': 0.0005
+        'learning_rate': 0.0003  # ลดลงเพื่อลด overfitting
     },
     'deep_learning': {
         'hidden_dims': [1024, 512, 256, 128, 64],
-        'dropout': 0.5,
+        'dropout': 0.6,  # เพิ่มจาก 0.5
         'epochs': 100,
-        'learning_rate': 0.0003
+        'learning_rate': 0.0002  # ลดลงเพื่อลด overfitting
     },
     'bayesian_network': {
         'hidden_dims': [256, 128, 64],
         'epochs': 100,
-        'learning_rate': 0.0005
+        'learning_rate': 0.0003  # ลดลงเพื่อ stability
     },
     'maximum_entropy': {
-        'l2_reg': 0.01,
+        'l2_reg': 0.1,  # เพิ่มจาก 0.01 เพื่อลด overfitting
         'epochs': 100,
-        'learning_rate': 0.001
+        'learning_rate': 0.002,  # เพิ่มขึ้นเพื่อเรียนรู้เร็วขึ้น
+        'use_class_weight': True  # ใหม่! จัดการ imbalanced data
     },
     'svm': {
         'kernel': 'linear',  # linear เร็วกว่า rbf มาก

@@ -26,7 +26,7 @@ class MaximumEntropyModel:
     """Maximum Entropy wrapper with training utilities"""
     
     def __init__(self, input_dim, learning_rate=None, epochs=None, 
-                 l2_reg=0.01):
+                 l2_reg=0.01, use_class_weight=True):
         """
         Initialize Maximum Entropy model
         
@@ -35,19 +35,24 @@ class MaximumEntropyModel:
             learning_rate: Learning rate for optimizer
             epochs: Number of training epochs
             l2_reg: L2 regularization strength
+            use_class_weight: Whether to use class weighting
         """
         self.model = MaximumEntropyClassifier(input_dim).to(config.DEVICE)
         
         self.learning_rate = learning_rate or config.LEARNING_RATE
         self.epochs = epochs or config.EPOCHS
         self.l2_reg = l2_reg
+        self.use_class_weight = use_class_weight
         self.model_name = 'Maximum_Entropy'
         
         self.criterion = nn.BCELoss()
-        self.optimizer = optim.Adam(
+        self.optimizer = optim.AdamW(  # AdamW ดีกว่า Adam สำหรับ regularization
             self.model.parameters(), 
             lr=self.learning_rate,
             weight_decay=self.l2_reg
+        )
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, mode='min', factor=0.5, patience=5
         )
         
     def train(self, X_train, y_train, X_valid=None, y_valid=None):
@@ -60,9 +65,20 @@ class MaximumEntropyModel:
         X_train_tensor = torch.FloatTensor(X_train).to(config.DEVICE)
         y_train_tensor = torch.FloatTensor(y_train).unsqueeze(1).to(config.DEVICE)
         
+        # Calculate class weights for imbalanced data
+        if self.use_class_weight:
+            pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
+            self.criterion = nn.BCELoss(
+                weight=torch.FloatTensor([pos_weight if y == 1 else 1.0 for y in y_train]).unsqueeze(1).to(config.DEVICE)
+            )
+            print(f"   Using class weighting: {pos_weight:.2f}")
+        
         train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
         train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, 
                                  shuffle=True)
+        
+        best_val_loss = float('inf')
+        patience_counter = 0
         
         for epoch in range(self.epochs):
             self.model.train()
@@ -79,10 +95,23 @@ class MaximumEntropyModel:
             avg_loss = total_loss / len(train_loader)
             
             # Validation
-            if X_valid is not None and y_valid is not None and epoch % 10 == 0:
+            if X_valid is not None and y_valid is not None:
                 val_loss = self._validate(X_valid, y_valid)
-                print(f"   Epoch [{epoch+1}/{self.epochs}] - "
-                      f"Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}")
+                self.scheduler.step(val_loss)
+                
+                if epoch % 10 == 0:
+                    print(f"   Epoch [{epoch+1}/{self.epochs}] - "
+                          f"Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}")
+                
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+                    
+                if patience_counter >= 10:  # Early stopping
+                    print(f"   Early stopping at epoch {epoch+1}")
+                    break
             elif epoch % 10 == 0:
                 print(f"   Epoch [{epoch+1}/{self.epochs}] - Train Loss: {avg_loss:.4f}")
         
