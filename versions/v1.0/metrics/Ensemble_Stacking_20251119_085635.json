@@ -1,0 +1,10 @@
+{
+    "model_name": "Ensemble_Stacking",
+    "accuracy": 0.7308075772681955,
+    "precision": 0.7310024389854268,
+    "recall": 0.7308075772681955,
+    "f1_score": 0.730843526836471,
+    "auc_roc": 0.8087249459581262,
+    "timestamp": "20251119_085635",
+    "version": "v1.0"
+}
