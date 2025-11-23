@@ -201,13 +201,15 @@ def prepare_data_for_model(X, y=None, model_type='neural', preprocessor=None):
     
     elif model_type == 'svm':
         # SVM: Feature selection + normalization
-        if preprocessor and y is not None:
-            # Fit feature selector on training data
-            n_features = config.MODEL_PARAMS['svm'].get('n_features_select', 3000)
-            if 'svm' not in preprocessor.feature_selectors:
+        if preprocessor:
+            # If y is provided, fit the selector (training data)
+            if y is not None and 'svm' not in preprocessor.feature_selectors:
+                n_features = config.MODEL_PARAMS['svm'].get('n_features_select', 3000)
                 preprocessor.fit_feature_selector(X, y, 'svm', n_features)
-            # Apply selection
-            X = preprocessor.apply_feature_selection(X, 'svm')
+            
+            # Apply selection (for both train and test)
+            if 'svm' in preprocessor.feature_selectors:
+                X = preprocessor.apply_feature_selection(X, 'svm')
         
         # L2 normalization
         from sklearn.preprocessing import normalize

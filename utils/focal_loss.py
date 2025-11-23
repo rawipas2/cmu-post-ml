@@ -55,7 +55,8 @@ class FocalLoss(nn.Module):
             probs = F.softmax(inputs, dim=1)
             
             # Get probability of correct class
-            targets_one_hot = F.one_hot(targets, num_classes=inputs.size(1)).float()
+            targets_long = targets.long()  # Convert to LongTensor for one_hot
+            targets_one_hot = F.one_hot(targets_long, num_classes=inputs.size(1)).float()
             p_t = (probs * targets_one_hot).sum(dim=1)
             alpha_t = self.alpha
         

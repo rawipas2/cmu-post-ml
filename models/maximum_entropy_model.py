@@ -68,9 +68,8 @@ class MaximumEntropyModel:
         # Calculate class weights for imbalanced data
         if self.use_class_weight:
             pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
-            self.criterion = nn.BCELoss(
-                weight=torch.FloatTensor([pos_weight if y == 1 else 1.0 for y in y_train]).unsqueeze(1).to(config.DEVICE)
-            )
+            # Use pos_weight in BCEWithLogitsLoss or manually weight in loss calculation
+            self.pos_weight_value = pos_weight
             print(f"   Using class weighting: {pos_weight:.2f}")
         
         train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
@@ -87,7 +86,17 @@ class MaximumEntropyModel:
             for batch_X, batch_y in train_loader:
                 self.optimizer.zero_grad()
                 outputs = self.model(batch_X)
-                loss = self.criterion(outputs, batch_y)
+                
+                # Apply class weighting manually if needed
+                if self.use_class_weight:
+                    # Weight positive class more
+                    weights = torch.where(batch_y == 1, 
+                                        torch.tensor(self.pos_weight_value, device=config.DEVICE),
+                                        torch.tensor(1.0, device=config.DEVICE))
+                    loss = (self.criterion(outputs, batch_y) * weights).mean()
+                else:
+                    loss = self.criterion(outputs, batch_y)
+                
                 loss.backward()
                 self.optimizer.step()
                 total_loss += loss.item()

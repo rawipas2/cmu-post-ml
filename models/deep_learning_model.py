@@ -43,7 +43,7 @@ class DeepLearningModel:
     """Deep Learning wrapper with training utilities"""
     
     def __init__(self, input_dim, hidden_dims=[1024, 512, 256, 128, 64],
-                 learning_rate=None, epochs=None, dropout=0.4):
+                 learning_rate=None, epochs=None, dropout=0.4, use_focal_loss=False):
         """
         Initialize Deep Learning model
         
@@ -52,6 +52,7 @@ class DeepLearningModel:
             hidden_dims: List of hidden layer dimensions
             learning_rate: Learning rate for optimizer
             epochs: Number of training epochs
+            use_focal_loss: Use Focal Loss (v1.2.2)
         """
         self.model = DeepLearningClassifier(
             input_dim=input_dim,
@@ -62,8 +63,15 @@ class DeepLearningModel:
         self.learning_rate = learning_rate or config.LEARNING_RATE
         self.epochs = epochs or config.EPOCHS
         self.model_name = 'Deep_Learning'
+        self.use_focal_loss = use_focal_loss
         
-        self.criterion = nn.BCELoss()
+        # Choose loss function
+        if use_focal_loss:
+            print("   ✓ Using Focal Loss")
+            self.criterion = FocalLoss(alpha=0.25, gamma=2.0)
+        else:
+            self.criterion = nn.BCELoss()
+        
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer, mode='min', factor=0.5, patience=5

@@ -90,21 +90,10 @@ class SVMModel:
             print("   Converting sparse to dense...")
             X_train = X_train.toarray()
         
-        # GPU acceleration for preprocessing
-        if self.use_gpu:
-            print("   GPU preprocessing (normalization)...")
-            X_gpu = self._to_gpu(X_train)
-            # Normalize on GPU and store parameters
-            self.mean_ = cp.mean(X_gpu, axis=0)
-            self.std_ = cp.std(X_gpu, axis=0) + 1e-8
-            X_gpu = (X_gpu - self.mean_) / self.std_
-            X_train = self._to_cpu(X_gpu)
-        else:
-            print("   CPU preprocessing (normalization)...")
-            # CPU normalization
-            self.mean_ = np.mean(X_train, axis=0)
-            self.std_ = np.std(X_train, axis=0) + 1e-8
-            X_train = (X_train - self.mean_) / self.std_
+        # Note: Normalization is now done in prepare_data_for_model (v1.2.2)
+        # No need to normalize again here
+        self.mean_ = None  # Not used anymore
+        self.std_ = None
         
         # Train model
         print(f"   Fitting SVM model ({'SGD' if self.use_sgd else 'LinearSVC'})...")
@@ -124,19 +113,9 @@ class SVMModel:
         print("   ✅ Training complete")
     
     def predict(self, X):
-        """Predict with GPU preprocessing"""
+        """Predict (no normalization needed - done in prepare_data_for_model)"""
         if hasattr(X, 'toarray'):
             X = X.toarray()
-        
-        # GPU preprocessing with stored normalization
-        if self.use_gpu and self.mean_ is not None:
-            X_gpu = self._to_gpu(X)
-            X_gpu = (X_gpu - self.mean_) / self.std_
-            X = self._to_cpu(X_gpu)
-        elif self.mean_ is not None:
-            mean_cpu = self._to_cpu(self.mean_) if self.use_gpu else self.mean_
-            std_cpu = self._to_cpu(self.std_) if self.use_gpu else self.std_
-            X = (X - mean_cpu) / std_cpu
         
         return self.model.predict(X)
     
@@ -146,14 +125,10 @@ class SVMModel:
             X = X.toarray()
         
         # GPU preprocessing with stored normalization
-        if self.use_gpu and self.mean_ is not None:
-            X_gpu = self._to_gpu(X)
-            X_gpu = (X_gpu - self.mean_) / self.std_
-            X = self._to_cpu(X_gpu)
-        elif self.mean_ is not None:
-            mean_cpu = self._to_cpu(self.mean_) if self.use_gpu else self.mean_
-            std_cpu = self._to_cpu(self.std_) if self.use_gpu else self.std_
-            X = (X - mean_cpu) / std_cpu
+    def predict_proba(self, X):
+        """Predict probabilities (no normalization needed)"""
+        if hasattr(X, 'toarray'):
+            X = X.toarray()
         
         # Use calibrated model for probabilities if available
         if self.use_sgd:

@@ -115,6 +115,9 @@ def main():
         X_train_svm = prepare_data_for_model(
             X_train.copy(), y_train, 'svm', preprocessor
         )
+        X_valid_svm = prepare_data_for_model(
+            X_valid.copy(), model_type='svm', preprocessor=preprocessor
+        )
         X_test_svm = prepare_data_for_model(
             X_test.copy(), model_type='svm', preprocessor=preprocessor
         )
