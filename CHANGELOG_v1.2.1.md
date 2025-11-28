@@ -38,7 +38,7 @@ This is a **refinement** of the existing approach rather than a major architectu
 | **Deep Hidden**     | [1024,512,256,128,64] | **[2048,1024,512,256,128]** | +100% first layer       |
 | **Bayesian Hidden** | [256,128,64]          | **[512,256,128]**           | +100% capacity          |
 | **Meta Hidden**     | 128                   | **256**                     | +100% ensemble capacity |
-| **Training Time**   | ~20-25 min            | **~35-45 min**              | +50% (more features)    |
+| **Training Time**   | ~20-25 min            | **~9 hours (actual)**       | +~21.6× (more features) |
 
 ---
 
@@ -626,15 +626,12 @@ If v1.2.1 doesn't reach 80%, consider:
 
 ---
 
-## ⏱️ Timeline
+## ⏱️ Timeline (Actual)
 
-- **Feature Extraction**: ~3-5 min (10K features)
-- **Per Model Training**: ~5-7 min (with early stopping)
-- **6 Models**: ~30-40 min
-- **Ensemble**: ~5-7 min
-- **Total**: **~35-50 min**
+- **End-to-end (feature extraction + 6 models + ensemble)**: **~9 hours (actual)** on i5-14500 + RTX 4060 Ti
+- คาดการณ์เดิม (~35-50 นาที) ไม่ตรง: 10K features + batch 16 ทำให้ runtime ช้ากว่าประมาณ 21.6×
 
-Compared to v1.2: ~20-25 min (50-100% increase due to richer features)
+Compared to v1.2: ~20-25 min → **~9 hours** (ช้ากว่ามาก)
 
 ---
 
