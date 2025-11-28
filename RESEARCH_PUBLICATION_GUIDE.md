@@ -20,13 +20,13 @@ OS: Windows
 
 ### **Performance Summary**
 
-| Version    | Features      | Models | Preprocessing      | Avg Accuracy | Ensemble     | Training Time | Focus              |
-| ---------- | ------------- | ------ | ------------------ | ------------ | ------------ | ------------- | ------------------ |
-| **v1.0**   | 5K, (1,2)g    | 3      | Generic            | ~73%         | N/A          | ~15 min       | Baseline           |
-| **v1.1**   | 5K, (1,2)g    | 6      | Generic            | 73.57%       | ~75%         | ~20 min       | All models         |
-| **v1.2**   | 5K, (1,2)g    | 6      | + Early stop       | ~75%         | ~77%         | ~25 min       | Anti-overfitting   |
+| Version    | Features      | Models | Preprocessing      | Avg Accuracy | Ensemble     | Training Time        | Focus              |
+| ---------- | ------------- | ------ | ------------------ | ------------ | ------------ | -------------------- | ------------------ |
+| **v1.0**   | 5K, (1,2)g    | 3      | Generic            | ~73%         | N/A          | ~15 min              | Baseline           |
+| **v1.1**   | 5K, (1,2)g    | 6      | Generic            | 73.57%       | ~75%         | ~20 min              | All models         |
+| **v1.2**   | 5K, (1,2)g    | 6      | + Early stop       | ~75%         | ~77%         | ~25 min              | Anti-overfitting   |
 | **v1.2.1** | 10K, (1,2,3)g | 6      | Generic            | 74.44%       | ~76%         | **9 hours (actual)** | Rich features      |
-| **v1.2.2** | 5K, (1,2)g    | 6      | **Model-specific** | **76-77%\*** | **78-80%\*** | ~25 min (expected) | Smart optimization |
+| **v1.2.2** | 5K, (1,2)g    | 6      | **Model-specific** | **76-77%\*** | **78-80%\*** | ~25 min (expected)   | Smart optimization |
 
 **Note**: \*Target values for v1.2.2
 
@@ -335,7 +335,7 @@ New Innovations:
 Results (expected):
   - Average: 76-77% (+1.5-2.5% vs v1.2.1)
   - Ensemble: 78-80% (meets target!)
-  - Training time: ~25 min (expected; 95.4% faster than v1.2.1)
+  - Training time: ~25 min (95.4% faster than v1.2.1's 9 hours)
   - Memory: ~50% less than v1.2.1
 
 Key Achievement: ✅ Faster + More accurate = True optimization
@@ -568,13 +568,13 @@ GPU: NVIDIA GeForce RTX 4060 Ti
 
 **Table: Performance Across Versions**
 
-| Version | Features       | Training Time | Avg Acc    | Ensemble   | Notes            |
-| ------- | -------------- | ------------- | ---------- | ---------- | ---------------- |
-| v1.0    | 5K, (1,2)g     | ~15 min       | ~73%       | -          | Proof of concept |
-| v1.1    | 5K, (1,2)g     | ~20 min       | 73.57%     | ~75%       | All 6 models     |
-| v1.2    | 5K, (1,2)g     | ~25 min       | ~75%       | ~77%       | Anti-overfitting |
-| v1.2.1  | 10K, (1,2,3)g  | **9 hours (actual)**  | 74.44%     | ~76%       | ❌ Too slow      |
-| v1.2.2  | 5K, model-spec | ~25 min       | **76-77%** | **78-80%** | ✅ Target met    |
+| Version | Features       | Training Time        | Avg Acc    | Ensemble   | Notes            |
+| ------- | -------------- | -------------------- | ---------- | ---------- | ---------------- |
+| v1.0    | 5K, (1,2)g     | ~15 min              | ~73%       | -          | Proof of concept |
+| v1.1    | 5K, (1,2)g     | ~20 min              | 73.57%     | ~75%       | All 6 models     |
+| v1.2    | 5K, (1,2)g     | ~25 min              | ~75%       | ~77%       | Anti-overfitting |
+| v1.2.1  | 10K, (1,2,3)g  | **9 hours (actual)** | 74.44%     | ~76%       | ❌ Too slow      |
+| v1.2.2  | 5K, model-spec | ~25 min              | **76-77%** | **78-80%** | ✅ Target met    |
 
 **Key Findings**:
 
@@ -638,8 +638,8 @@ Speed-up: 21.6× faster (95.4% reduction)
 **Finding 3: "Smart & Fast" Beats "Big & Slow"**
 
 ```
-v1.2.1 (Big & Slow): 10K features, 9 hours, 74.44%
-v1.2.2 (Smart & Fast): 5K features, 25 min, 76-77%
+v1.2.1 (Big & Slow): 10K features, 9 hours (actual), 74.44%
+v1.2.2 (Smart & Fast): 5K features, ~25 min (expected), 76-77%
 
 Why v1.2.1 failed:
 - Curse of dimensionality
@@ -840,6 +840,7 @@ and clinical deployment with proper ethical safeguards.
 ## ✅ Checklist v1.2.2 (ก่อน/ระหว่าง/หลังรัน)
 
 **ก่อนรัน**
+
 - [ ] `config.py` เป็น `CURRENT_VERSION="v1.2.2"` และ `MAX_FEATURES=5000`, `BATCH_SIZE=32`, `EPOCHS=100`
 - [ ] เปิด `use_focal_loss=True` สำหรับ neural/deep/bayesian/maxent
 - [ ] เปิด feature selection SVM (`n_features_select=3000`) และ Count vectorizer สำหรับ Naive Bayes
@@ -847,6 +848,7 @@ and clinical deployment with proper ethical safeguards.
 - [ ] จับเวลาเริ่มต้น (notebook/log) เพื่อบันทึก runtime จริง
 
 **ระหว่างรัน**
+
 - [ ] Log แสดงการ fit TF-IDF 5K, Count 5K, และข้อความ “Feature selector for svm: 5000 → 3000”
 - [ ] Log แสดง “Using Focal Loss” สำหรับ NN/DL/Bayesian/MaxEnt
 - [ ] Early stopping ทำงาน (เห็น epoch หยุดก่อน 100)
@@ -854,6 +856,7 @@ and clinical deployment with proper ethical safeguards.
 - [ ] จดเวลาจบ (ต้องได้ runtime จริงแทนค่าคาดการณ์ ~25 นาที)
 
 **หลังรัน**
+
 - [ ] เก็บ metrics ต่อโมเดล: Accuracy, Precision/Recall/F1 (macro/micro), AUC, Confusion Matrix
 - [ ] บันทึก runtime จริง (เปรียบเทียบกับ 9 ชม. ของ v1.2.1)
 - [ ] ตรวจว่า SVM ใช้ 3K features, NB ใช้ Count unigram, NN/DL/Bayesian ใช้ TF-IDF bigram
