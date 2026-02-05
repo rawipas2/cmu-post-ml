@@ -4,12 +4,15 @@ v1.2.2: Model-specific preprocessing and focal loss
 """
 import os
 import sys
+import argparse
 import numpy as np
 from datetime import datetime
 import config
 from utils import (
     load_all_data, evaluate_model, print_metrics,
-    plot_confusion_matrix, plot_roc_curve, plot_model_comparison,
+    plot_confusion_matrix, plot_roc_curve, plot_pr_curve, plot_model_comparison,
+    positive_class_score, tune_threshold_by_f1, plot_confusion_matrix_at_threshold,
+    plot_roc_pr_curves,
     save_results, generate_classification_report,
     create_version_directory, generate_readme,
     prepare_data_for_model
@@ -33,10 +36,17 @@ def train_and_evaluate_model(model, model_name, X_train, y_train,
     # Make predictions
     y_pred = model.predict(X_test)
     y_pred_proba = model.predict_proba(X_test)
+    y_valid_proba = model.predict_proba(X_valid)
     
     # Evaluate
     metrics = evaluate_model(y_test, y_pred, y_pred_proba, model_name)
     print_metrics(metrics)
+
+    # Threshold tuning on validation set (τ*)
+    tuning = tune_threshold_by_f1(y_valid, y_valid_proba)
+    metrics['tuned_threshold'] = tuning['threshold']
+    metrics['tuned_threshold_metric'] = 'f1_valid'
+    metrics['tuned_threshold_f1_valid'] = tuning['f1']
     
     # Save model
     model_path = os.path.join(version_dir, 'models', f'{model_name}.pth')
@@ -50,10 +60,37 @@ def train_and_evaluate_model(model, model_name, X_train, y_train,
     
     roc_path = os.path.join(plots_dir, f'{model_name}_roc_curve.png')
     plot_roc_curve(y_test, y_pred_proba, model_name, roc_path)
+
+    pr_path = os.path.join(plots_dir, f'{model_name}_pr_curve.png')
+    plot_pr_curve(y_test, y_pred_proba, model_name, pr_path)
+
+    tuned_cm_path = os.path.join(plots_dir, f'{model_name}_confusion_matrix_tuned.png')
+    plot_confusion_matrix_at_threshold(
+        y_test,
+        positive_class_score(y_pred_proba),
+        tuning['threshold'],
+        model_name,
+        tuned_cm_path
+    )
     
     # Save metrics
     metrics_dir = os.path.join(version_dir, 'metrics')
     save_results(metrics, metrics_dir, model_name)
+
+    # Save predictions for paper/reproducibility
+    predictions_dir = os.path.join(version_dir, 'predictions')
+    os.makedirs(predictions_dir, exist_ok=True)
+    np.savez_compressed(
+        os.path.join(predictions_dir, f'{model_name}.npz'),
+        version=config.CURRENT_VERSION,
+        model_name=model_name,
+        y_valid=np.asarray(y_valid),
+        y_valid_score=positive_class_score(y_valid_proba),
+        y_test=np.asarray(y_test),
+        y_test_score=positive_class_score(y_pred_proba),
+        tuned_threshold=tuning['threshold'],
+        tuned_threshold_f1_valid=tuning['f1']
+    )
     
     # Save classification report
     report_path = os.path.join(plots_dir, f'{model_name}_classification_report.txt')
@@ -105,6 +142,7 @@ def main():
     # Store all models and metrics
     trained_models = []
     all_metrics = []
+    curve_items = []  # for combined ROC/PR plots (test set)
     
     # 1. Train SVM (with feature selection)
     print("\n" + "🔵"*40)
@@ -134,9 +172,15 @@ def main():
         
         y_pred = svm.predict(X_test_svm)
         y_pred_proba = svm.predict_proba(X_test_svm)[:, 1]
+        y_valid_proba = svm.predict_proba(X_valid_svm)[:, 1]
         
         svm_metrics = evaluate_model(y_test, y_pred, y_pred_proba, 'SVM')
         print_metrics(svm_metrics)
+
+        tuning = tune_threshold_by_f1(y_valid, y_valid_proba)
+        svm_metrics['tuned_threshold'] = tuning['threshold']
+        svm_metrics['tuned_threshold_metric'] = 'f1_valid'
+        svm_metrics['tuned_threshold_f1_valid'] = tuning['f1']
         
         # Save visualizations
         plots_dir = os.path.join(version_dir, 'plots')
@@ -144,6 +188,10 @@ def main():
         plot_confusion_matrix(y_test, y_pred, 'SVM', cm_path)
         roc_path = os.path.join(plots_dir, 'SVM_roc_curve.png')
         plot_roc_curve(y_test, y_pred_proba, 'SVM', roc_path)
+        pr_path = os.path.join(plots_dir, 'SVM_pr_curve.png')
+        plot_pr_curve(y_test, y_pred_proba, 'SVM', pr_path)
+        tuned_cm_path = os.path.join(plots_dir, 'SVM_confusion_matrix_tuned.png')
+        plot_confusion_matrix_at_threshold(y_test, y_pred_proba, tuning['threshold'], 'SVM', tuned_cm_path)
         
         # Save metrics and model
         metrics_dir = os.path.join(version_dir, 'metrics')
@@ -153,9 +201,24 @@ def main():
         
         model_path = os.path.join(version_dir, 'models', 'SVM.pkl')
         svm.save(model_path)
+
+        predictions_dir = os.path.join(version_dir, 'predictions')
+        os.makedirs(predictions_dir, exist_ok=True)
+        np.savez_compressed(
+            os.path.join(predictions_dir, 'SVM.npz'),
+            version=config.CURRENT_VERSION,
+            model_name='SVM',
+            y_valid=np.asarray(y_valid),
+            y_valid_score=np.asarray(y_valid_proba),
+            y_test=np.asarray(y_test),
+            y_test_score=np.asarray(y_pred_proba),
+            tuned_threshold=tuning['threshold'],
+            tuned_threshold_f1_valid=tuning['f1']
+        )
         
         trained_models.append(svm)
         all_metrics.append(svm_metrics)
+        curve_items.append({"label": "SVM", "y_true": y_test, "y_score": y_pred_proba})
     except Exception as e:
         print(f"⚠️ SVM training failed: {e}")
         import traceback
@@ -179,6 +242,12 @@ def main():
         )
         trained_models.append(nn)
         all_metrics.append(nn_metrics)
+        # Load saved scores for combined plots (avoid recompute inside helper)
+        curve_items.append({
+            "label": "Neural_Network",
+            "y_true": y_test,
+            "y_score": nn.predict_proba(X_test)
+        })
     except Exception as e:
         print(f"⚠️ Neural Network training failed: {e}")
         import traceback
@@ -202,6 +271,11 @@ def main():
         )
         trained_models.append(dl)
         all_metrics.append(dl_metrics)
+        curve_items.append({
+            "label": "Deep_Learning",
+            "y_true": y_test,
+            "y_score": dl.predict_proba(X_test)
+        })
     except Exception as e:
         print(f"⚠️ Deep Learning training failed: {e}")
         import traceback
@@ -215,6 +289,7 @@ def main():
         
         # Prepare Naive Bayes-specific data (Count vectorizer)
         X_train_nb = prepare_data_for_model(X_train_count.copy(), model_type='naive_bayes')
+        X_valid_nb = prepare_data_for_model(X_valid_count.copy(), model_type='naive_bayes')
         X_test_nb = prepare_data_for_model(X_test_count.copy(), model_type='naive_bayes')
         
         params = config.MODEL_PARAMS['naive_bayes']
@@ -223,9 +298,15 @@ def main():
         
         y_pred = nb.predict(X_test_nb)
         y_pred_proba = nb.predict_proba(X_test_nb)[:, 1]
+        y_valid_proba = nb.predict_proba(X_valid_nb)[:, 1]
         
         nb_metrics = evaluate_model(y_test, y_pred, y_pred_proba, 'Naive_Bayes')
         print_metrics(nb_metrics)
+
+        tuning = tune_threshold_by_f1(y_valid, y_valid_proba)
+        nb_metrics['tuned_threshold'] = tuning['threshold']
+        nb_metrics['tuned_threshold_metric'] = 'f1_valid'
+        nb_metrics['tuned_threshold_f1_valid'] = tuning['f1']
         
         # Save visualizations
         plots_dir = os.path.join(version_dir, 'plots')
@@ -233,6 +314,10 @@ def main():
         plot_confusion_matrix(y_test, y_pred, 'Naive_Bayes', cm_path)
         roc_path = os.path.join(plots_dir, 'Naive_Bayes_roc_curve.png')
         plot_roc_curve(y_test, y_pred_proba, 'Naive_Bayes', roc_path)
+        pr_path = os.path.join(plots_dir, 'Naive_Bayes_pr_curve.png')
+        plot_pr_curve(y_test, y_pred_proba, 'Naive_Bayes', pr_path)
+        tuned_cm_path = os.path.join(plots_dir, 'Naive_Bayes_confusion_matrix_tuned.png')
+        plot_confusion_matrix_at_threshold(y_test, y_pred_proba, tuning['threshold'], 'Naive_Bayes', tuned_cm_path)
         
         # Save metrics and model
         metrics_dir = os.path.join(version_dir, 'metrics')
@@ -242,9 +327,24 @@ def main():
         
         model_path = os.path.join(version_dir, 'models', 'Naive_Bayes.pkl')
         nb.save(model_path)
+
+        predictions_dir = os.path.join(version_dir, 'predictions')
+        os.makedirs(predictions_dir, exist_ok=True)
+        np.savez_compressed(
+            os.path.join(predictions_dir, 'Naive_Bayes.npz'),
+            version=config.CURRENT_VERSION,
+            model_name='Naive_Bayes',
+            y_valid=np.asarray(y_valid),
+            y_valid_score=np.asarray(y_valid_proba),
+            y_test=np.asarray(y_test),
+            y_test_score=np.asarray(y_pred_proba),
+            tuned_threshold=tuning['threshold'],
+            tuned_threshold_f1_valid=tuning['f1']
+        )
         
         trained_models.append(nb)
         all_metrics.append(nb_metrics)
+        curve_items.append({"label": "Naive_Bayes", "y_true": y_test, "y_score": y_pred_proba})
     except Exception as e:
         print(f"⚠️ Naive Bayes training failed: {e}")
         import traceback
@@ -268,6 +368,11 @@ def main():
         )
         trained_models.append(bn)
         all_metrics.append(bn_metrics)
+        curve_items.append({
+            "label": "Bayesian_Network",
+            "y_true": y_test,
+            "y_score": bn.predict_proba(X_test)
+        })
     except Exception as e:
         print(f"⚠️ Bayesian Network training failed: {e}")
         import traceback
@@ -291,6 +396,11 @@ def main():
         )
         trained_models.append(me)
         all_metrics.append(me_metrics)
+        curve_items.append({
+            "label": "Maximum_Entropy",
+            "y_true": y_test,
+            "y_score": me.predict_proba(X_test)
+        })
     except Exception as e:
         print(f"⚠️ Maximum Entropy training failed: {e}")
         import traceback
@@ -312,6 +422,11 @@ def main():
                 X_valid, y_valid, X_test, y_test, version_dir, preprocessor
             )
             all_metrics.append(ensemble_metrics)
+            curve_items.append({
+                "label": "Ensemble_Stacking",
+                "y_true": y_test,
+                "y_score": ensemble.predict_proba(X_test)
+            })
         except Exception as e:
             print(f"⚠️ Ensemble Stacking training failed: {e}")
     else:
@@ -322,6 +437,12 @@ def main():
         print("\n📊 Generating comparison plots...")
         comparison_path = os.path.join(version_dir, 'plots', 'model_comparison.png')
         plot_model_comparison(all_metrics, comparison_path)
+
+    # Combined ROC/PR figure (IEEE-friendly)
+    if curve_items:
+        print("\n📈 Generating combined ROC/PR curves...")
+        roc_pr_path = os.path.join(version_dir, 'plots', 'roc_pr_curves_all_models.png')
+        plot_roc_pr_curves(curve_items, roc_pr_path, title_suffix=f" ({config.CURRENT_VERSION})")
     
     # Generate README
     print("\n📝 Generating documentation...")
@@ -362,6 +483,14 @@ This is version {config.CURRENT_VERSION} of the Thai Depression Classification s
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--version",
+        default=config.CURRENT_VERSION,
+        help="Override output version folder under ./versions (default: config.CURRENT_VERSION)",
+    )
+    args = parser.parse_args()
+    config.CURRENT_VERSION = args.version
     try:
         main()
     except KeyboardInterrupt:

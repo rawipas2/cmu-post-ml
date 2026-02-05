@@ -7,12 +7,38 @@ import seaborn as sns
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     confusion_matrix, classification_report, roc_curve, auc,
-    roc_auc_score
+    roc_auc_score, precision_recall_curve, average_precision_score
 )
 import json
 import os
 from datetime import datetime
 import config
+
+
+def _ensure_binary_labels(y_true):
+    y_true = np.asarray(y_true)
+    unique = np.unique(y_true)
+    if unique.size != 2:
+        raise ValueError(
+            f"Expected binary labels, got {unique.size} unique values: {unique.tolist()}"
+        )
+    if set(unique.tolist()) == {0, 1}:
+        return y_true.astype(int)
+    negative, positive = unique.min(), unique.max()
+    return (y_true == positive).astype(int)
+
+
+def positive_class_score(y_pred_proba):
+    """
+    Normalize probability outputs to a 1D array of positive-class scores.
+    Supports shape (n_samples,) or (n_samples, 2).
+    """
+    scores = np.asarray(y_pred_proba)
+    if scores.ndim == 1:
+        return scores
+    if scores.ndim == 2 and scores.shape[1] == 2:
+        return scores[:, 1]
+    raise ValueError(f"Unsupported probability shape: {scores.shape}")
 
 
 def evaluate_model(y_true, y_pred, y_pred_proba=None, model_name='Model'):
@@ -26,7 +52,7 @@ def evaluate_model(y_true, y_pred, y_pred_proba=None, model_name='Model'):
     }
     
     if y_pred_proba is not None:
-        metrics['auc_roc'] = roc_auc_score(y_true, y_pred_proba)
+        metrics['auc_roc'] = roc_auc_score(_ensure_binary_labels(y_true), positive_class_score(y_pred_proba))
     
     return metrics
 
@@ -62,7 +88,9 @@ def plot_confusion_matrix(y_true, y_pred, model_name, save_path):
 
 def plot_roc_curve(y_true, y_pred_proba, model_name, save_path):
     """Plot and save ROC curve"""
-    fpr, tpr, _ = roc_curve(y_true, y_pred_proba)
+    y_true = _ensure_binary_labels(y_true)
+    y_score = positive_class_score(y_pred_proba)
+    fpr, tpr, _ = roc_curve(y_true, y_score)
     roc_auc = auc(fpr, tpr)
     
     plt.figure(figsize=(8, 6))
@@ -80,6 +108,118 @@ def plot_roc_curve(y_true, y_pred_proba, model_name, save_path):
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"   Saved ROC curve: {save_path}")
+
+
+def plot_pr_curve(y_true, y_pred_proba, model_name, save_path):
+    """Plot and save Precision-Recall curve"""
+    y_true = _ensure_binary_labels(y_true)
+    y_score = positive_class_score(y_pred_proba)
+
+    precision, recall, _ = precision_recall_curve(y_true, y_score)
+    ap = average_precision_score(y_true, y_score)
+    prevalence = float(np.mean(y_true))
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(recall, precision, color='purple', lw=2, label=f'PR curve (AP = {ap:.4f})')
+    plt.hlines(prevalence, 0.0, 1.0, colors='gray', linestyles='--', lw=1.5, label='Baseline')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title(f'Precision-Recall Curve - {model_name}')
+    plt.legend(loc="lower left")
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"   Saved PR curve: {save_path}")
+
+
+def tune_threshold_by_f1(y_true, y_score):
+    """Tune a decision threshold to maximize F1 on a validation set."""
+    y_true = _ensure_binary_labels(y_true)
+    y_score = positive_class_score(y_score)
+
+    precision, recall, thresholds = precision_recall_curve(y_true, y_score)
+    if thresholds.size == 0:
+        return {
+            "threshold": 0.5,
+            "f1": float("nan"),
+            "precision": float("nan"),
+            "recall": float("nan"),
+        }
+
+    precision_t = precision[:-1]
+    recall_t = recall[:-1]
+    f1 = (2 * precision_t * recall_t) / (precision_t + recall_t + 1e-12)
+    best_idx = int(np.nanargmax(f1))
+    return {
+        "threshold": float(thresholds[best_idx]),
+        "f1": float(f1[best_idx]),
+        "precision": float(precision_t[best_idx]),
+        "recall": float(recall_t[best_idx]),
+    }
+
+
+def plot_confusion_matrix_at_threshold(y_true, y_score, threshold, model_name, save_path):
+    """Plot confusion matrix generated from probability scores at a given threshold."""
+    y_true = _ensure_binary_labels(y_true)
+    y_score = positive_class_score(y_score)
+    y_pred = (y_score >= threshold).astype(int)
+    title = f"{model_name} (τ* = {threshold:.3f})"
+    plot_confusion_matrix(y_true, y_pred, title, save_path)
+
+
+def plot_roc_pr_curves(curves, save_path, title_suffix=""):
+    """
+    Plot ROC and PR curves side-by-side.
+    curves: list of dicts with keys: label, y_true, y_score
+    """
+    if not curves:
+        raise ValueError("No curves provided")
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5.2))
+
+    # ROC
+    ax = axes[0]
+    ax.plot([0, 1], [0, 1], color='navy', lw=1.5, linestyle='--', alpha=0.8)
+    for item in curves:
+        y_true = _ensure_binary_labels(item["y_true"])
+        y_score = positive_class_score(item["y_score"])
+        fpr, tpr, _ = roc_curve(y_true, y_score)
+        roc_auc = auc(fpr, tpr)
+        ax.plot(fpr, tpr, lw=2, label=f"{item['label']} (AUC={roc_auc:.3f})")
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
+    ax.set_xlabel('False Positive Rate')
+    ax.set_ylabel('True Positive Rate')
+    ax.set_title(f'ROC curves{title_suffix}')
+    ax.grid(True, alpha=0.25)
+    ax.legend(loc="lower right", fontsize=8)
+
+    # PR
+    ax = axes[1]
+    all_y = _ensure_binary_labels(curves[0]["y_true"])
+    prevalence = float(np.mean(all_y))
+    ax.hlines(prevalence, 0.0, 1.0, colors='gray', linestyles='--', lw=1.5, label='Baseline')
+    for item in curves:
+        y_true = _ensure_binary_labels(item["y_true"])
+        y_score = positive_class_score(item["y_score"])
+        precision, recall, _ = precision_recall_curve(y_true, y_score)
+        ap = average_precision_score(y_true, y_score)
+        ax.plot(recall, precision, lw=2, label=f"{item['label']} (AP={ap:.3f})")
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
+    ax.set_xlabel('Recall')
+    ax.set_ylabel('Precision')
+    ax.set_title(f'PR curves{title_suffix}')
+    ax.grid(True, alpha=0.25)
+    ax.legend(loc="lower left", fontsize=8)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    print(f"   Saved ROC+PR curves: {save_path}")
 
 
 def plot_model_comparison(all_metrics, save_path):
