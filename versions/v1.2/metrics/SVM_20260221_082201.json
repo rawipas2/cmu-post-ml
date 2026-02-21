@@ -1,0 +1,13 @@
+{
+    "model_name": "SVM",
+    "accuracy": 0.511864406779661,
+    "precision": 0.2620051709278943,
+    "recall": 0.511864406779661,
+    "f1_score": 0.3465987687162727,
+    "auc_roc": 0.7836913527909539,
+    "tuned_threshold": 0.4065166548305015,
+    "tuned_threshold_metric": "f1_valid",
+    "tuned_threshold_f1_valid": 0.7230095336248669,
+    "timestamp": "20260221_082201",
+    "version": "v1.2"
+}

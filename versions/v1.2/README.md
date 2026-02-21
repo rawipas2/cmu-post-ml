@@ -1,7 +1,7 @@
 # Thai Depression Classification - v1.2
 
 ## Overview
-Training run completed on: 2025-11-19 10:19:29
+Training run completed on: 2026-02-21 08:22:39
 
 ## Performance Summary
 
@@ -9,18 +9,16 @@ Training run completed on: 2025-11-19 10:19:29
 - **Target Accuracy**: 80.0%
 
 ### Results
-- **Best Single Model**: SVM (0.7519)
-- **Average Accuracy**: 0.7456
+- **Best Single Model**: Naive_Bayes (0.7619)
+- **Average Accuracy**: 0.6785
 
 ## Individual Model Performance
 
 | Model | Accuracy | Precision | Recall | F1 Score | AUC-ROC |
 |-------|----------|-----------|--------|----------|---------|
-| SVM | 0.7519 | 0.7552 | 0.7519 | 0.7506 | 0.8307 |
-| Naive_Bayes | 0.7517 | 0.7517 | 0.7517 | 0.7517 | 0.8353 |
-| Bayesian_Network | 0.7436 | 0.7435 | 0.7436 | 0.7435 | 0.8293 |
-| Neural_Network | 0.7424 | 0.7424 | 0.7424 | 0.7424 | 0.8218 |
-| Deep_Learning | 0.7384 | 0.7389 | 0.7384 | 0.7379 | 0.7986 |
+| Naive_Bayes | 0.7619 | 0.7619 | 0.7619 | 0.7618 | 0.8451 |
+| Maximum_Entropy | 0.7617 | 0.7617 | 0.7617 | 0.7617 | 0.8460 |
+| SVM | 0.5119 | 0.2620 | 0.5119 | 0.3466 | 0.7837 |
 
 ## Models Used
 
@@ -42,10 +40,10 @@ Training run completed on: 2025-11-19 10:19:29
 
 ## Weaknesses ❌
 
-- 5 model(s) below target accuracy
-  - SVM: 0.7519
-  - Neural_Network: 0.7424
-  - Deep_Learning: 0.7384
+- 3 model(s) below target accuracy
+  - SVM: 0.5119
+  - Naive_Bayes: 0.7619
+  - Maximum_Entropy: 0.7617
 
 ## Improvements for Next Version
 
@@ -81,11 +79,11 @@ This is version v1.2 of the Thai Depression Classification system.
 - Validation samples: 3344
 - Test samples: 5015
 - Feature dimension: 5000
-- Models successfully trained: 5
+- Models successfully trained: 3
 
 ## Hardware
-- Device: cuda
-- GPU: Available
+- Device: cpu
+- GPU: Not Available
 
 
 ## Configuration
@@ -95,7 +93,7 @@ MAX_FEATURES: 5000
 BATCH_SIZE: 32
 EPOCHS: 100
 LEARNING_RATE: 0.0005
-DEVICE: cuda
+DEVICE: cpu
 ```
 
 ---

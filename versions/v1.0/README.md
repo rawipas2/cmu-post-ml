@@ -1,7 +1,7 @@
 # Thai Depression Classification - v1.0
 
 ## Overview
-Training run completed on: 2025-11-19 08:56:35
+Training run completed on: 2026-02-21 08:25:10
 
 ## Performance Summary
 
@@ -9,17 +9,16 @@ Training run completed on: 2025-11-19 08:56:35
 - **Target Accuracy**: 80.0%
 
 ### Results
-- **Best Single Model**: Ensemble_Stacking (0.7308)
-- **Average Accuracy**: 0.7165
-- **Ensemble Accuracy**: 0.7308 ❌ Below target
+- **Best Single Model**: Maximum_Entropy (0.7621)
+- **Average Accuracy**: 0.6786
 
 ## Individual Model Performance
 
 | Model | Accuracy | Precision | Recall | F1 Score | AUC-ROC |
 |-------|----------|-----------|--------|----------|---------|
-| Ensemble_Stacking | 0.7308 | 0.7310 | 0.7308 | 0.7308 | 0.8087 |
-| Neural_Network | 0.7304 | 0.7304 | 0.7304 | 0.7303 | 0.8108 |
-| Maximum_Entropy | 0.6881 | 0.7200 | 0.6881 | 0.6739 | 0.7897 |
+| Maximum_Entropy | 0.7621 | 0.7623 | 0.7621 | 0.7619 | 0.8460 |
+| Naive_Bayes | 0.7619 | 0.7619 | 0.7619 | 0.7618 | 0.8451 |
+| SVM | 0.5119 | 0.2620 | 0.5119 | 0.3466 | 0.7837 |
 
 ## Models Used
 
@@ -42,10 +41,9 @@ Training run completed on: 2025-11-19 08:56:35
 ## Weaknesses ❌
 
 - 3 model(s) below target accuracy
-  - Neural_Network: 0.7304
-  - Maximum_Entropy: 0.6881
-  - Ensemble_Stacking: 0.7308
-- Ensemble model did not achieve target accuracy
+  - SVM: 0.5119
+  - Naive_Bayes: 0.7619
+  - Maximum_Entropy: 0.7621
 
 ## Improvements for Next Version
 
@@ -81,21 +79,21 @@ This is version v1.0 of the Thai Depression Classification system.
 - Validation samples: 3344
 - Test samples: 5015
 - Feature dimension: 5000
-- Models successfully trained: 2
+- Models successfully trained: 3
 
 ## Hardware
-- Device: cuda
-- GPU: Available
+- Device: cpu
+- GPU: Not Available
 
 
 ## Configuration
 
 ```python
 MAX_FEATURES: 5000
-BATCH_SIZE: 64
-EPOCHS: 50
-LEARNING_RATE: 0.001
-DEVICE: cuda
+BATCH_SIZE: 32
+EPOCHS: 100
+LEARNING_RATE: 0.0005
+DEVICE: cpu
 ```
 
 ---

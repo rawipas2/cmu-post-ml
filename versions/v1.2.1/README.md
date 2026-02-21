@@ -1,7 +1,7 @@
 # Thai Depression Classification - v1.2.1
 
 ## Overview
-Training run completed on: 2025-11-19 19:55:45
+Training run completed on: 2026-02-21 08:21:00
 
 ## Performance Summary
 
@@ -9,18 +9,16 @@ Training run completed on: 2025-11-19 19:55:45
 - **Target Accuracy**: 80.0%
 
 ### Results
-- **Best Single Model**: Naive_Bayes (0.7567)
-- **Average Accuracy**: 0.7444
+- **Best Single Model**: Maximum_Entropy (0.7631)
+- **Average Accuracy**: 0.6790
 
 ## Individual Model Performance
 
 | Model | Accuracy | Precision | Recall | F1 Score | AUC-ROC |
 |-------|----------|-----------|--------|----------|---------|
-| Naive_Bayes | 0.7567 | 0.7568 | 0.7567 | 0.7567 | 0.8395 |
-| SVM | 0.7490 | 0.7505 | 0.7490 | 0.7482 | 0.8290 |
-| Deep_Learning | 0.7454 | 0.7455 | 0.7454 | 0.7452 | 0.8144 |
-| Bayesian_Network | 0.7406 | 0.7407 | 0.7406 | 0.7406 | 0.8277 |
-| Neural_Network | 0.7302 | 0.7333 | 0.7302 | 0.7298 | 0.8125 |
+| Maximum_Entropy | 0.7631 | 0.7633 | 0.7631 | 0.7629 | 0.8461 |
+| Naive_Bayes | 0.7619 | 0.7619 | 0.7619 | 0.7618 | 0.8451 |
+| SVM | 0.5119 | 0.2620 | 0.5119 | 0.3466 | 0.7837 |
 
 ## Models Used
 
@@ -42,10 +40,10 @@ Training run completed on: 2025-11-19 19:55:45
 
 ## Weaknesses ❌
 
-- 5 model(s) below target accuracy
-  - SVM: 0.7490
-  - Neural_Network: 0.7302
-  - Deep_Learning: 0.7454
+- 3 model(s) below target accuracy
+  - SVM: 0.5119
+  - Naive_Bayes: 0.7619
+  - Maximum_Entropy: 0.7631
 
 ## Improvements for Next Version
 
@@ -80,22 +78,22 @@ This is version v1.2.1 of the Thai Depression Classification system.
 - Total samples trained: 25077
 - Validation samples: 3344
 - Test samples: 5015
-- Feature dimension: 10000
-- Models successfully trained: 5
+- Feature dimension: 5000
+- Models successfully trained: 3
 
 ## Hardware
-- Device: cuda
-- GPU: Available
+- Device: cpu
+- GPU: Not Available
 
 
 ## Configuration
 
 ```python
-MAX_FEATURES: 10000
-BATCH_SIZE: 16
-EPOCHS: 150
-LEARNING_RATE: 0.0003
-DEVICE: cuda
+MAX_FEATURES: 5000
+BATCH_SIZE: 32
+EPOCHS: 100
+LEARNING_RATE: 0.0005
+DEVICE: cpu
 ```
 
 ---

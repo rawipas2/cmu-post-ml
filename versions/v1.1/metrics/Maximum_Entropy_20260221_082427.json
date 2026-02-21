@@ -1,0 +1,13 @@
+{
+    "model_name": "Maximum_Entropy",
+    "accuracy": 0.7621136590229312,
+    "precision": 0.7624224671043232,
+    "recall": 0.7621136590229312,
+    "f1_score": 0.7618519080393977,
+    "auc_roc": 0.8460927693373156,
+    "tuned_threshold": 0.4570206105709076,
+    "tuned_threshold_metric": "f1_valid",
+    "tuned_threshold_f1_valid": 0.7624819624814642,
+    "timestamp": "20260221_082427",
+    "version": "v1.1"
+}
