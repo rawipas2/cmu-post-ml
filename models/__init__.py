@@ -7,6 +7,7 @@ from . import deep_learning_model
 from . import naive_bayes_model
 from . import bayesian_network_model
 from . import maximum_entropy_model
+from . import ensemble_stacking
 
 __all__ = [
     'svm_model',
@@ -14,5 +15,6 @@ __all__ = [
     'deep_learning_model',
     'naive_bayes_model',
     'bayesian_network_model',
-    'maximum_entropy_model'
+    'maximum_entropy_model',
+    'ensemble_stacking'
 ]

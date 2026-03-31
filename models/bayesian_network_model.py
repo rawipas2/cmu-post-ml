@@ -62,7 +62,6 @@ class BayesianNetworkClassifier(nn.Module):
             prev_dim = hidden_dim
         
         layers.append(BayesianLayer(prev_dim, 1))
-        layers.append(nn.Sigmoid())
         
         self.layers = nn.ModuleList(layers)
     
@@ -102,7 +101,7 @@ class BayesianNetworkModel:
             print("   ✓ Using Focal Loss")
             self.criterion = FocalLoss(alpha=0.25, gamma=2.0)
         else:
-            self.criterion = nn.BCELoss()
+            self.criterion = nn.BCEWithLogitsLoss()
         
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         
@@ -130,8 +129,8 @@ class BayesianNetworkModel:
             
             for batch_X, batch_y in train_loader:
                 self.optimizer.zero_grad()
-                outputs = self.model(batch_X)
-                loss = self.criterion(outputs, batch_y)
+                logits = self.model(batch_X)
+                loss = self.criterion(logits, batch_y)
                 loss.backward()
                 
                 # Gradient clipping
@@ -170,8 +169,8 @@ class BayesianNetworkModel:
         with torch.no_grad():
             X_valid_tensor = torch.FloatTensor(X_valid).to(config.DEVICE)
             y_valid_tensor = torch.FloatTensor(y_valid).unsqueeze(1).to(config.DEVICE)
-            outputs = self.model(X_valid_tensor)
-            loss = self.criterion(outputs, y_valid_tensor)
+            logits = self.model(X_valid_tensor)
+            loss = self.criterion(logits, y_valid_tensor)
         return loss.item()
     
     def predict(self, X, n_samples=10):
@@ -183,8 +182,8 @@ class BayesianNetworkModel:
         predictions = []
         for _ in range(n_samples):
             with torch.no_grad():
-                outputs = self.model(X_tensor)
-                predictions.append(outputs.cpu().numpy())
+                logits = self.model(X_tensor)
+                predictions.append(torch.sigmoid(logits).cpu().numpy())
         
         # Average predictions
         mean_pred = np.mean(predictions, axis=0)
@@ -200,8 +199,8 @@ class BayesianNetworkModel:
         predictions = []
         for _ in range(n_samples):
             with torch.no_grad():
-                outputs = self.model(X_tensor)
-                predictions.append(outputs.cpu().numpy())
+                logits = self.model(X_tensor)
+                predictions.append(torch.sigmoid(logits).cpu().numpy())
         
         # Return mean probability
         mean_prob = np.mean(predictions, axis=0).flatten()

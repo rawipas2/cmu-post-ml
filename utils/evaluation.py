@@ -118,7 +118,7 @@ def plot_model_comparison(all_metrics, save_path):
     print(f"   Saved comparison plot: {save_path}")
 
 
-def save_results(metrics, save_dir, model_name):
+def save_results(metrics, save_dir, model_name, version_name=None, metadata=None):
     """Save evaluation results to JSON"""
     os.makedirs(save_dir, exist_ok=True)
     
@@ -127,7 +127,9 @@ def save_results(metrics, save_dir, model_name):
     
     # Add timestamp to metrics
     metrics['timestamp'] = timestamp
-    metrics['version'] = config.CURRENT_VERSION
+    metrics['version'] = version_name or config.CURRENT_VERSION
+    if metadata:
+        metrics.update(metadata)
     
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(metrics, f, indent=4, ensure_ascii=False)

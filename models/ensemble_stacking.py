@@ -46,7 +46,7 @@ class StackingMetaLearner(nn.Module):
 class EnsembleStackingModel:
     """Stacking ensemble combining predictions from multiple models"""
     
-    def __init__(self, base_models, learning_rate=None, epochs=None, hidden_dim=None):
+    def __init__(self, base_models=None, n_models=None, learning_rate=None, epochs=None, hidden_dim=None):
         """
         Initialize Ensemble Stacking model
         
@@ -56,8 +56,8 @@ class EnsembleStackingModel:
             epochs: Number of epochs for meta-learner
             hidden_dim: Hidden dimension for meta-learner
         """
-        self.base_models = base_models
-        self.n_models = len(base_models)
+        self.base_models = base_models or []
+        self.n_models = n_models or len(self.base_models)
         
         meta_hidden = hidden_dim or getattr(config, 'META_HIDDEN_DIM', 128)
         
@@ -82,6 +82,9 @@ class EnsembleStackingModel:
         
     def _get_base_predictions(self, X, use_proba=True):
         """Get predictions from all base models"""
+        if isinstance(X, np.ndarray) and X.ndim == 2 and X.shape[1] == self.n_models and not self.base_models:
+            return X
+
         predictions = []
         
         for model in self.base_models:
@@ -89,6 +92,8 @@ class EnsembleStackingModel:
                 pred = model.predict_proba(X)
             else:
                 pred = model.predict(X)
+            if isinstance(pred, np.ndarray) and pred.ndim == 2:
+                pred = pred[:, -1]
             predictions.append(pred)
         
         # Stack predictions as features
@@ -213,6 +218,6 @@ class EnsembleStackingModel:
         print(f"📂 {self.model_name} loaded from: {filepath}")
 
 
-def create_ensemble(base_models, **kwargs):
+def create_ensemble(base_models=None, **kwargs):
     """Factory function to create Ensemble Stacking model"""
     return EnsembleStackingModel(base_models=base_models, **kwargs)

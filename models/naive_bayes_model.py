@@ -7,6 +7,7 @@ import torch
 from sklearn.naive_bayes import MultinomialNB
 import pickle
 import os
+import config
 
 try:
     import cupy as cp
@@ -120,3 +121,8 @@ class NaiveBayesModel:
     def load(self, path):
         with open(path, 'rb') as f:
             self.model = pickle.load(f)
+
+
+def create_model(config_module=config, **kwargs):
+    """Factory function for compatibility with quick tests."""
+    return NaiveBayesModel(config_module, **kwargs)

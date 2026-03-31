@@ -1,374 +1,495 @@
 """
-Main Training Script for Thai Depression Classification
-v1.2.2: Model-specific preprocessing and focal loss
+Experiment-driven training script for Thai Depression Classification.
 """
+import argparse
+import inspect
 import os
 import sys
-import numpy as np
 from datetime import datetime
+
+import numpy as np
+
 import config
-from utils import (
-    load_all_data, evaluate_model, print_metrics,
-    plot_confusion_matrix, plot_roc_curve, plot_model_comparison,
-    save_results, generate_classification_report,
-    create_version_directory, generate_readme,
-    prepare_data_for_model
-)
-from utils.augmentation import augment_dataset
 from models import (
-    svm_model, neural_network_model, deep_learning_model,
-    naive_bayes_model, bayesian_network_model, maximum_entropy_model,
-    ensemble_stacking
+    bayesian_network_model,
+    deep_learning_model,
+    ensemble_stacking,
+    maximum_entropy_model,
+    naive_bayes_model,
+    neural_network_model,
+    svm_model,
+)
+from utils import (
+    create_version_directory,
+    evaluate_model,
+    generate_classification_report,
+    generate_readme,
+    load_all_data,
+    plot_confusion_matrix,
+    plot_model_comparison,
+    plot_roc_curve,
+    prepare_data_for_model,
+    print_metrics,
+    save_results,
 )
 
 
-def train_and_evaluate_model(model, model_name, X_train, y_train, 
-                             X_valid, y_valid, X_test, y_test, 
-                             version_dir, preprocessor):
-    """Train and evaluate a single model"""
-    
-    # Train model
-    model.train(X_train, y_train, X_valid, y_valid)
-    
-    # Make predictions
-    y_pred = model.predict(X_test)
-    y_pred_proba = model.predict_proba(X_test)
-    
-    # Evaluate
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run Thai depression classification experiments.")
+    parser.add_argument(
+        '--preprocessing-mode',
+        choices=['shared', 'model_specific'],
+        default='model_specific',
+        help='Feature pipeline to use for this experiment.'
+    )
+    parser.add_argument(
+        '--loss-mode',
+        choices=['bce', 'focal'],
+        default='focal',
+        help='Loss to use for differentiable models.'
+    )
+    parser.add_argument(
+        '--svm-policy',
+        choices=['freeze_v1_2', 'current'],
+        default='freeze_v1_2',
+        help='How to handle SVM inside model-specific runs.'
+    )
+    parser.add_argument(
+        '--experiment-name',
+        default=None,
+        help='Optional explicit output folder name under versions/.'
+    )
+    parser.add_argument(
+        '--version-prefix',
+        default='factorial',
+        help='Prefix used when building the experiment folder name.'
+    )
+    return parser.parse_args()
+
+
+def build_experiment(args):
+    experiment_name = args.experiment_name or (
+        f"{args.version_prefix}_{args.preprocessing_mode}-{args.loss_mode}"
+    )
+    return {
+        'experiment_name': experiment_name,
+        'version_name': experiment_name,
+        'preprocessing_mode': args.preprocessing_mode,
+        'loss_mode': args.loss_mode,
+        'svm_policy': args.svm_policy,
+        'run_timestamp': datetime.now().strftime("%Y%m%d_%H%M%S"),
+    }
+
+
+def to_positive_class_proba(prediction):
+    if isinstance(prediction, np.ndarray) and prediction.ndim == 2:
+        return prediction[:, -1]
+    return np.asarray(prediction).reshape(-1)
+
+
+def get_model_datasets(data, preprocessor, experiment):
+    datasets = {}
+
+    shared_train = data['X_train'].copy()
+    shared_valid = data['X_valid'].copy()
+    shared_test = data['X_test'].copy()
+
+    if (
+        experiment['preprocessing_mode'] == 'model_specific'
+        and experiment['svm_policy'] == 'current'
+    ):
+        svm_train = prepare_data_for_model(
+            data['X_train'].copy(),
+            data['y_train'],
+            'svm',
+            preprocessor
+        )
+        svm_valid = prepare_data_for_model(
+            data['X_valid'].copy(),
+            model_type='svm',
+            preprocessor=preprocessor
+        )
+        svm_test = prepare_data_for_model(
+            data['X_test'].copy(),
+            model_type='svm',
+            preprocessor=preprocessor
+        )
+        svm_variant = 'model_specific_current'
+    else:
+        svm_train = shared_train
+        svm_valid = shared_valid
+        svm_test = shared_test
+        svm_variant = 'shared_frozen_v1_2'
+
+    if experiment['preprocessing_mode'] == 'model_specific':
+        nb_train_base = data['X_train_count'].copy()
+        nb_valid_base = data['X_valid_count'].copy()
+        nb_test_base = data['X_test_count'].copy()
+        nb_variant = 'count_unigram'
+    else:
+        nb_train_base = shared_train
+        nb_valid_base = shared_valid
+        nb_test_base = shared_test
+        nb_variant = 'shared_tfidf'
+
+    datasets['svm'] = {
+        'train': svm_train,
+        'valid': svm_valid,
+        'test': svm_test,
+        'variant': svm_variant,
+    }
+    datasets['naive_bayes'] = {
+        'train': prepare_data_for_model(nb_train_base, model_type='naive_bayes'),
+        'valid': prepare_data_for_model(nb_valid_base, model_type='naive_bayes'),
+        'test': prepare_data_for_model(nb_test_base, model_type='naive_bayes'),
+        'variant': nb_variant,
+    }
+
+    for model_type in ['neural', 'deep', 'bayesian', 'maxent']:
+        datasets[model_type] = {
+            'train': prepare_data_for_model(shared_train.copy(), model_type=model_type),
+            'valid': prepare_data_for_model(shared_valid.copy(), model_type=model_type),
+            'test': prepare_data_for_model(shared_test.copy(), model_type=model_type),
+            'variant': 'shared_tfidf',
+        }
+
+    return datasets
+
+
+def get_model_metadata(experiment, model_name, variant, uses_loss_factor):
+    metadata = dict(experiment)
+    metadata['model_variant'] = variant
+    metadata['uses_loss_factor'] = uses_loss_factor
+    metadata['display_loss_mode'] = experiment['loss_mode'] if uses_loss_factor else 'n/a'
+    metadata['svm_freeze_applied'] = (
+        model_name == 'SVM' and variant == 'shared_frozen_v1_2'
+    )
+    return metadata
+
+
+def get_model_file_extension(model_name):
+    if model_name in {'SVM', 'Naive_Bayes'}:
+        return 'pkl'
+    return 'pth'
+
+
+def train_model(model, X_train, y_train, X_valid=None, y_valid=None):
+    train_signature = inspect.signature(model.train)
+    if len(train_signature.parameters) >= 4:
+        model.train(X_train, y_train, X_valid, y_valid)
+    else:
+        model.train(X_train, y_train)
+
+
+def evaluate_and_save_model(
+    model,
+    model_name,
+    dataset,
+    y_train,
+    y_valid,
+    y_test,
+    version_dir,
+    preprocessor,
+    model_metadata,
+    all_metrics
+):
+    train_model(model, dataset['train'], y_train, dataset['valid'], y_valid)
+
+    y_pred = model.predict(dataset['test'])
+    y_pred_proba = to_positive_class_proba(model.predict_proba(dataset['test']))
+
     metrics = evaluate_model(y_test, y_pred, y_pred_proba, model_name)
     print_metrics(metrics)
-    
-    # Save model
-    model_path = os.path.join(version_dir, 'models', f'{model_name}.pth')
-    model.save(model_path)
-    
-    # Save visualizations
+
     plots_dir = os.path.join(version_dir, 'plots')
-    
-    cm_path = os.path.join(plots_dir, f'{model_name}_confusion_matrix.png')
-    plot_confusion_matrix(y_test, y_pred, model_name, cm_path)
-    
-    roc_path = os.path.join(plots_dir, f'{model_name}_roc_curve.png')
-    plot_roc_curve(y_test, y_pred_proba, model_name, roc_path)
-    
-    # Save metrics
     metrics_dir = os.path.join(version_dir, 'metrics')
-    save_results(metrics, metrics_dir, model_name)
-    
-    # Save classification report
-    report_path = os.path.join(plots_dir, f'{model_name}_classification_report.txt')
-    generate_classification_report(y_test, y_pred, preprocessor, report_path)
-    
-    return model, metrics
+
+    plot_confusion_matrix(y_test, y_pred, model_name, os.path.join(plots_dir, f'{model_name}_confusion_matrix.png'))
+    plot_roc_curve(y_test, y_pred_proba, model_name, os.path.join(plots_dir, f'{model_name}_roc_curve.png'))
+    save_results(
+        metrics,
+        metrics_dir,
+        model_name,
+        version_name=model_metadata['version_name'],
+        metadata=model_metadata
+    )
+    generate_classification_report(
+        y_test,
+        y_pred,
+        preprocessor,
+        os.path.join(plots_dir, f'{model_name}_classification_report.txt')
+    )
+
+    model_path = os.path.join(
+        version_dir,
+        'models',
+        f"{model_name}.{get_model_file_extension(model_name)}"
+    )
+    model.save(model_path)
+
+    all_metrics.append(metrics)
+
+    return {
+        'name': model_name,
+        'model': model,
+        'metrics': metrics,
+        'train_proba': to_positive_class_proba(model.predict_proba(dataset['train'])),
+        'valid_proba': to_positive_class_proba(model.predict_proba(dataset['valid'])),
+        'test_proba': y_pred_proba,
+    }
+
+
+def maybe_train_ensemble(
+    model_outputs,
+    y_train,
+    y_valid,
+    y_test,
+    version_dir,
+    preprocessor,
+    experiment,
+    all_metrics
+):
+    if len(model_outputs) < 2:
+        print("โ ๏ธ Not enough models trained for ensemble. Skipping ensemble.")
+        return None
+
+    ensemble_train = np.column_stack([output['train_proba'] for output in model_outputs])
+    ensemble_valid = np.column_stack([output['valid_proba'] for output in model_outputs])
+    ensemble_test = np.column_stack([output['test_proba'] for output in model_outputs])
+
+    print("\n" + "๐ข" * 40)
+    print("๐€ Training Ensemble Stacking Model")
+    print("๐ข" * 40)
+
+    ensemble = ensemble_stacking.create_ensemble(n_models=ensemble_train.shape[1])
+    ensemble_metadata = dict(experiment)
+    ensemble_metadata['model_variant'] = 'stacked_predictions'
+    ensemble_metadata['uses_loss_factor'] = True
+    ensemble_metadata['display_loss_mode'] = experiment['loss_mode']
+    ensemble_metadata['base_models'] = [output['name'] for output in model_outputs]
+
+    ensemble_output = evaluate_and_save_model(
+        ensemble,
+        'Ensemble_Stacking',
+        {
+            'train': ensemble_train,
+            'valid': ensemble_valid,
+            'test': ensemble_test,
+            'variant': 'stacked_predictions',
+        },
+        y_train,
+        y_valid,
+        y_test,
+        version_dir,
+        preprocessor,
+        ensemble_metadata,
+        all_metrics
+    )
+    return ensemble_output
+
+
+def build_notes(data, experiment, model_outputs):
+    lines = [
+        f"This run used preprocessing_mode={experiment['preprocessing_mode']}, "
+        f"loss_mode={experiment['loss_mode']}, svm_policy={experiment['svm_policy']}.",
+        "",
+        "## Training Details",
+        f"- Total samples trained: {len(data['y_train'])}",
+        f"- Validation samples: {len(data['y_valid'])}",
+        f"- Test samples: {len(data['y_test'])}",
+        f"- Shared feature dimension: {data['X_train'].shape[1]}",
+        f"- Models successfully trained: {len(model_outputs)}",
+    ]
+
+    if (
+        experiment['preprocessing_mode'] == 'model_specific'
+        and experiment['svm_policy'] == 'freeze_v1_2'
+    ):
+        lines.extend([
+            "",
+            "## Reporting Note",
+            "- SVM uses the shared TF-IDF path as the stable v1.2-style baseline.",
+            "- This avoids the known calibration/threshold collapse from the current model-specific SVM path.",
+        ])
+
+    return "\n".join(lines)
 
 
 def main():
-    """Main training pipeline"""
-    
-    print("\n" + "="*80)
-    print("🧠 Thai Depression Classification - ML Training Pipeline v1.2.2")
-    print("="*80 + "\n")
-    
-    # Create version directory
-    version_dir = create_version_directory(config.CURRENT_VERSION)
-    print(f"📁 Version directory: {version_dir}\n")
-    
-    # Load data
+    args = parse_args()
+    experiment = build_experiment(args)
+
+    print("\n" + "=" * 80)
+    print("Thai Depression Classification - Factorial Experiment Runner")
+    print("=" * 80 + "\n")
+    print(
+        f"Experiment: {experiment['experiment_name']} | "
+        f"preprocessing={experiment['preprocessing_mode']} | "
+        f"loss={experiment['loss_mode']} | svm_policy={experiment['svm_policy']}"
+    )
+
+    version_dir = create_version_directory(
+        experiment['version_name'],
+        metadata=experiment
+    )
+    experiment['version_dir'] = version_dir
+    print(f"Version directory: {version_dir}\n")
+
     data = load_all_data()
-    X_train = data['X_train']  # TF-IDF features
-    X_valid = data['X_valid']
-    X_test = data['X_test']
-    X_train_count = data['X_train_count']  # Count features for Naive Bayes
-    X_valid_count = data['X_valid_count']
-    X_test_count = data['X_test_count']
+    preprocessor = data['preprocessor']
+    datasets = get_model_datasets(data, preprocessor, experiment)
+
     y_train = data['y_train']
     y_valid = data['y_valid']
     y_test = data['y_test']
-    preprocessor = data['preprocessor']
-    
-    input_dim = X_train.shape[1]
-    print(f"📐 Input dimension: {input_dim}\n")
-    
-    # Optional: Data augmentation (uncomment to enable)
-    # print("📈 Augmenting training data...")
-    # train_texts, train_labels = augment_dataset(
-    #     data['train_texts'], 
-    #     preprocessor.decode_labels(y_train),
-    #     aug_per_sample=1,
-    #     balance_classes=True
-    # )
-    # # Re-encode and vectorize augmented data
-    # y_train = preprocessor.encode_labels(train_labels)
-    # X_train = preprocessor.transform_tfidf(train_texts)
-    # X_train_count = preprocessor.transform_count(train_texts)
-    
-    # Store all models and metrics
-    trained_models = []
+    input_dim = data['X_train'].shape[1]
+
+    use_focal_loss = experiment['loss_mode'] == 'focal'
     all_metrics = []
-    
-    # 1. Train SVM (with feature selection)
-    print("\n" + "🔵"*40)
-    try:
-        print("🔵 Training SVM with feature selection...")
-        
-        # Prepare SVM-specific data
-        X_train_svm = prepare_data_for_model(
-            X_train.copy(), y_train, 'svm', preprocessor
-        )
-        X_valid_svm = prepare_data_for_model(
-            X_valid.copy(), model_type='svm', preprocessor=preprocessor
-        )
-        X_test_svm = prepare_data_for_model(
-            X_test.copy(), model_type='svm', preprocessor=preprocessor
-        )
-        
-        params = config.MODEL_PARAMS['svm']
-        svm = svm_model.SVMModel(
-            config,
-            kernel=params['kernel'],
-            C=params['C'],
-            gamma=params['gamma'],
-            use_sgd=params.get('use_sgd', True)
-        )
-        svm.train(X_train_svm, y_train)
-        
-        y_pred = svm.predict(X_test_svm)
-        y_pred_proba = svm.predict_proba(X_test_svm)[:, 1]
-        
-        svm_metrics = evaluate_model(y_test, y_pred, y_pred_proba, 'SVM')
-        print_metrics(svm_metrics)
-        
-        # Save visualizations
-        plots_dir = os.path.join(version_dir, 'plots')
-        cm_path = os.path.join(plots_dir, 'SVM_confusion_matrix.png')
-        plot_confusion_matrix(y_test, y_pred, 'SVM', cm_path)
-        roc_path = os.path.join(plots_dir, 'SVM_roc_curve.png')
-        plot_roc_curve(y_test, y_pred_proba, 'SVM', roc_path)
-        
-        # Save metrics and model
-        metrics_dir = os.path.join(version_dir, 'metrics')
-        save_results(svm_metrics, metrics_dir, 'SVM')
-        report_path = os.path.join(plots_dir, 'SVM_classification_report.txt')
-        generate_classification_report(y_test, y_pred, preprocessor, report_path)
-        
-        model_path = os.path.join(version_dir, 'models', 'SVM.pkl')
-        svm.save(model_path)
-        
-        trained_models.append(svm)
-        all_metrics.append(svm_metrics)
-    except Exception as e:
-        print(f"⚠️ SVM training failed: {e}")
-        import traceback
-        traceback.print_exc()
-        print("   Continuing with other models...")
-    
-    # 2. Train Neural Network (with Focal Loss)
-    print("\n" + "🔵"*40)
-    try:
-        params = config.MODEL_PARAMS['neural_network']
-        nn = neural_network_model.create_model(
-            input_dim=input_dim,
-            hidden_dims=params['hidden_dims'],
-            learning_rate=params['learning_rate'],
-            epochs=params['epochs'],
-            use_focal_loss=params.get('use_focal_loss', False)
-        )
-        nn, nn_metrics = train_and_evaluate_model(
-            nn, 'Neural_Network', X_train, y_train, X_valid, y_valid,
-            X_test, y_test, version_dir, preprocessor
-        )
-        trained_models.append(nn)
-        all_metrics.append(nn_metrics)
-    except Exception as e:
-        print(f"⚠️ Neural Network training failed: {e}")
-        import traceback
-        traceback.print_exc()
-        print("   Continuing with other models...")
-    
-    # 3. Train Deep Learning (with Focal Loss)
-    print("\n" + "🔵"*40)
-    try:
-        params = config.MODEL_PARAMS['deep_learning']
-        dl = deep_learning_model.create_model(
-            input_dim=input_dim,
-            hidden_dims=params['hidden_dims'],
-            learning_rate=params['learning_rate'],
-            epochs=params['epochs'],
-            use_focal_loss=params.get('use_focal_loss', False)
-        )
-        dl, dl_metrics = train_and_evaluate_model(
-            dl, 'Deep_Learning', X_train, y_train, X_valid, y_valid,
-            X_test, y_test, version_dir, preprocessor
-        )
-        trained_models.append(dl)
-        all_metrics.append(dl_metrics)
-    except Exception as e:
-        print(f"⚠️ Deep Learning training failed: {e}")
-        import traceback
-        traceback.print_exc()
-        print("   Continuing with other models...")
-    
-    # 4. Train Naive Bayes (using Count features)
-    print("\n" + "🔵"*40)
-    try:
-        print("🔵 Training Naive Bayes with Count features...")
-        
-        # Prepare Naive Bayes-specific data (Count vectorizer)
-        X_train_nb = prepare_data_for_model(X_train_count.copy(), model_type='naive_bayes')
-        X_test_nb = prepare_data_for_model(X_test_count.copy(), model_type='naive_bayes')
-        
-        params = config.MODEL_PARAMS['naive_bayes']
-        nb = naive_bayes_model.NaiveBayesModel(config, alpha=params['alpha'])
-        nb.train(X_train_nb, y_train)
-        
-        y_pred = nb.predict(X_test_nb)
-        y_pred_proba = nb.predict_proba(X_test_nb)[:, 1]
-        
-        nb_metrics = evaluate_model(y_test, y_pred, y_pred_proba, 'Naive_Bayes')
-        print_metrics(nb_metrics)
-        
-        # Save visualizations
-        plots_dir = os.path.join(version_dir, 'plots')
-        cm_path = os.path.join(plots_dir, 'Naive_Bayes_confusion_matrix.png')
-        plot_confusion_matrix(y_test, y_pred, 'Naive_Bayes', cm_path)
-        roc_path = os.path.join(plots_dir, 'Naive_Bayes_roc_curve.png')
-        plot_roc_curve(y_test, y_pred_proba, 'Naive_Bayes', roc_path)
-        
-        # Save metrics and model
-        metrics_dir = os.path.join(version_dir, 'metrics')
-        save_results(nb_metrics, metrics_dir, 'Naive_Bayes')
-        report_path = os.path.join(plots_dir, 'Naive_Bayes_classification_report.txt')
-        generate_classification_report(y_test, y_pred, preprocessor, report_path)
-        
-        model_path = os.path.join(version_dir, 'models', 'Naive_Bayes.pkl')
-        nb.save(model_path)
-        
-        trained_models.append(nb)
-        all_metrics.append(nb_metrics)
-    except Exception as e:
-        print(f"⚠️ Naive Bayes training failed: {e}")
-        import traceback
-        traceback.print_exc()
-        print("   Continuing with other models...")
-    
-    # 5. Train Bayesian Network (with Focal Loss)
-    print("\n" + "🔵"*40)
-    try:
-        params = config.MODEL_PARAMS['bayesian_network']
-        bn = bayesian_network_model.create_model(
-            input_dim=input_dim,
-            hidden_dims=params['hidden_dims'],
-            learning_rate=params['learning_rate'],
-            epochs=params['epochs'],
-            use_focal_loss=params.get('use_focal_loss', False)
-        )
-        bn, bn_metrics = train_and_evaluate_model(
-            bn, 'Bayesian_Network', X_train, y_train, X_valid, y_valid,
-            X_test, y_test, version_dir, preprocessor
-        )
-        trained_models.append(bn)
-        all_metrics.append(bn_metrics)
-    except Exception as e:
-        print(f"⚠️ Bayesian Network training failed: {e}")
-        import traceback
-        traceback.print_exc()
-        print("   Continuing with other models...")
-    
-    # 6. Train Maximum Entropy
-    print("\n" + "🔵"*40)
-    try:
-        params = config.MODEL_PARAMS['maximum_entropy']
-        me = maximum_entropy_model.create_model(
-            input_dim=input_dim,
-            l2_reg=params['l2_reg'],
-            learning_rate=params['learning_rate'],
-            epochs=params['epochs'],
-            use_class_weight=params.get('use_class_weight', True)
-        )
-        me, me_metrics = train_and_evaluate_model(
-            me, 'Maximum_Entropy', X_train, y_train, X_valid, y_valid,
-            X_test, y_test, version_dir, preprocessor
-        )
-        trained_models.append(me)
-        all_metrics.append(me_metrics)
-    except Exception as e:
-        print(f"⚠️ Maximum Entropy training failed: {e}")
-        import traceback
-        traceback.print_exc()
-        print("   Continuing with other models...")
-    
-    # 7. Train Ensemble Stacking
-    print("\n" + "🟢"*40)
-    print("🚀 Training Ensemble Stacking Model")
-    print("🟢"*40)
-    
-    if len(trained_models) >= 2:
+    model_outputs = []
+
+    training_plan = [
+        (
+            'svm',
+            'SVM',
+            lambda: svm_model.SVMModel(
+                config,
+                kernel=config.MODEL_PARAMS['svm']['kernel'],
+                C=config.MODEL_PARAMS['svm']['C'],
+                gamma=config.MODEL_PARAMS['svm']['gamma'],
+                use_sgd=config.MODEL_PARAMS['svm'].get('use_sgd', True)
+            ),
+            False
+        ),
+        (
+            'neural',
+            'Neural_Network',
+            lambda: neural_network_model.create_model(
+                input_dim=input_dim,
+                hidden_dims=config.MODEL_PARAMS['neural_network']['hidden_dims'],
+                learning_rate=config.MODEL_PARAMS['neural_network']['learning_rate'],
+                epochs=config.MODEL_PARAMS['neural_network']['epochs'],
+                dropout=config.MODEL_PARAMS['neural_network']['dropout'],
+                use_focal_loss=use_focal_loss
+            ),
+            True
+        ),
+        (
+            'deep',
+            'Deep_Learning',
+            lambda: deep_learning_model.create_model(
+                input_dim=input_dim,
+                hidden_dims=config.MODEL_PARAMS['deep_learning']['hidden_dims'],
+                learning_rate=config.MODEL_PARAMS['deep_learning']['learning_rate'],
+                epochs=config.MODEL_PARAMS['deep_learning']['epochs'],
+                dropout=config.MODEL_PARAMS['deep_learning']['dropout'],
+                use_focal_loss=use_focal_loss
+            ),
+            True
+        ),
+        (
+            'naive_bayes',
+            'Naive_Bayes',
+            lambda: naive_bayes_model.NaiveBayesModel(
+                config,
+                alpha=config.MODEL_PARAMS['naive_bayes']['alpha']
+            ),
+            False
+        ),
+        (
+            'bayesian',
+            'Bayesian_Network',
+            lambda: bayesian_network_model.create_model(
+                input_dim=input_dim,
+                hidden_dims=config.MODEL_PARAMS['bayesian_network']['hidden_dims'],
+                learning_rate=config.MODEL_PARAMS['bayesian_network']['learning_rate'],
+                epochs=config.MODEL_PARAMS['bayesian_network']['epochs'],
+                use_focal_loss=use_focal_loss
+            ),
+            True
+        ),
+        (
+            'maxent',
+            'Maximum_Entropy',
+            lambda: maximum_entropy_model.create_model(
+                input_dim=input_dim,
+                l2_reg=config.MODEL_PARAMS['maximum_entropy']['l2_reg'],
+                learning_rate=config.MODEL_PARAMS['maximum_entropy']['learning_rate'],
+                epochs=config.MODEL_PARAMS['maximum_entropy']['epochs'],
+                use_class_weight=False,
+                use_focal_loss=use_focal_loss
+            ),
+            True
+        ),
+    ]
+
+    for dataset_key, model_name, model_factory, uses_loss_factor in training_plan:
+        print("\n" + "๐”ต" * 40)
+        print(f"Training {model_name}...")
         try:
-            ensemble = ensemble_stacking.create_ensemble(
-                base_models=trained_models
+            model = model_factory()
+            model_output = evaluate_and_save_model(
+                model,
+                model_name,
+                datasets[dataset_key],
+                y_train,
+                y_valid,
+                y_test,
+                version_dir,
+                preprocessor,
+                get_model_metadata(
+                    experiment,
+                    model_name,
+                    datasets[dataset_key]['variant'],
+                    uses_loss_factor
+                ),
+                all_metrics
             )
-            ensemble, ensemble_metrics = train_and_evaluate_model(
-                ensemble, 'Ensemble_Stacking', X_train, y_train, 
-                X_valid, y_valid, X_test, y_test, version_dir, preprocessor
-            )
-            all_metrics.append(ensemble_metrics)
-        except Exception as e:
-            print(f"⚠️ Ensemble Stacking training failed: {e}")
-    else:
-        print("⚠️ Not enough models trained for ensemble. Skipping ensemble.")
-    
-    # Plot comparison
+            model_outputs.append(model_output)
+        except Exception as exc:
+            print(f"โ ๏ธ {model_name} training failed: {exc}")
+            import traceback
+            traceback.print_exc()
+            print("   Continuing with other models...")
+
+    maybe_train_ensemble(
+        model_outputs,
+        y_train,
+        y_valid,
+        y_test,
+        version_dir,
+        preprocessor,
+        experiment,
+        all_metrics
+    )
+
     if all_metrics:
-        print("\n📊 Generating comparison plots...")
         comparison_path = os.path.join(version_dir, 'plots', 'model_comparison.png')
         plot_model_comparison(all_metrics, comparison_path)
-    
-    # Generate README
-    print("\n📝 Generating documentation...")
-    notes = f"""
-This is version {config.CURRENT_VERSION} of the Thai Depression Classification system.
 
-## Training Details
-- Total samples trained: {len(y_train)}
-- Validation samples: {len(y_valid)}
-- Test samples: {len(y_test)}
-- Feature dimension: {input_dim}
-- Models successfully trained: {len(trained_models)}
+    notes = build_notes(data, experiment, model_outputs)
+    generate_readme(version_dir, all_metrics, notes=notes, metadata=experiment)
 
-## Hardware
-- Device: {config.DEVICE}
-- GPU: {'Available' if config.DEVICE == 'cuda' else 'Not Available'}
-"""
-    
-    generate_readme(version_dir, all_metrics, notes)
-    
-    # Final summary
-    print("\n" + "="*80)
-    print("✅ Training Pipeline Completed!")
-    print("="*80)
-    print(f"\n📁 All results saved to: {version_dir}")
-    
-    # Check if target accuracy was met
+    print("\n" + "=" * 80)
+    print("Training Pipeline Completed")
+    print("=" * 80)
+    print(f"\nAll results saved to: {version_dir}")
+
     if all_metrics:
-        best_acc = max(m['accuracy'] for m in all_metrics)
-        print(f"\n🎯 Best Accuracy: {best_acc:.4f}")
-        if best_acc >= config.TARGET_ACCURACY:
-            print(f"   ✅ TARGET ACHIEVED! (>= {config.TARGET_ACCURACY})")
-        else:
-            print(f"   ❌ Below target ({config.TARGET_ACCURACY})")
-            print(f"   💡 Consider hyperparameter tuning or data augmentation")
-    
-    print("\n" + "="*80 + "\n")
+        best_acc = max(metric['accuracy'] for metric in all_metrics)
+        print(f"\nBest Accuracy: {best_acc:.4f}")
+
+    print("\n" + "=" * 80 + "\n")
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n⚠️ Training interrupted by user")
+        print("\n\nTraining interrupted by user")
         sys.exit(1)
-    except Exception as e:
-        print(f"\n\n❌ Fatal error: {e}")
+    except Exception as exc:
+        print(f"\n\nFatal error: {exc}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

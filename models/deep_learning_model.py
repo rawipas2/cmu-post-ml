@@ -31,7 +31,6 @@ class DeepLearningClassifier(nn.Module):
             prev_dim = hidden_dim
         
         layers.append(nn.Linear(prev_dim, 1))
-        layers.append(nn.Sigmoid())
         
         self.network = nn.Sequential(*layers)
     
@@ -70,7 +69,7 @@ class DeepLearningModel:
             print("   ✓ Using Focal Loss")
             self.criterion = FocalLoss(alpha=0.25, gamma=2.0)
         else:
-            self.criterion = nn.BCELoss()
+            self.criterion = nn.BCEWithLogitsLoss()
         
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
@@ -100,8 +99,8 @@ class DeepLearningModel:
             
             for batch_X, batch_y in train_loader:
                 self.optimizer.zero_grad()
-                outputs = self.model(batch_X)
-                loss = self.criterion(outputs, batch_y)
+                logits = self.model(batch_X)
+                loss = self.criterion(logits, batch_y)
                 loss.backward()
                 
                 # Gradient clipping
@@ -138,8 +137,8 @@ class DeepLearningModel:
         with torch.no_grad():
             X_valid_tensor = torch.FloatTensor(X_valid).to(config.DEVICE)
             y_valid_tensor = torch.FloatTensor(y_valid).unsqueeze(1).to(config.DEVICE)
-            outputs = self.model(X_valid_tensor)
-            loss = self.criterion(outputs, y_valid_tensor)
+            logits = self.model(X_valid_tensor)
+            loss = self.criterion(logits, y_valid_tensor)
         return loss.item()
     
     def predict(self, X):
@@ -147,8 +146,8 @@ class DeepLearningModel:
         self.model.eval()
         with torch.no_grad():
             X_tensor = torch.FloatTensor(X).to(config.DEVICE)
-            outputs = self.model(X_tensor)
-            predictions = (outputs.cpu().numpy() > 0.5).astype(int).flatten()
+            logits = self.model(X_tensor)
+            predictions = (torch.sigmoid(logits).cpu().numpy() > 0.5).astype(int).flatten()
         return predictions
     
     def predict_proba(self, X):
@@ -156,8 +155,8 @@ class DeepLearningModel:
         self.model.eval()
         with torch.no_grad():
             X_tensor = torch.FloatTensor(X).to(config.DEVICE)
-            outputs = self.model(X_tensor)
-            probas = outputs.cpu().numpy().flatten()
+            logits = self.model(X_tensor)
+            probas = torch.sigmoid(logits).cpu().numpy().flatten()
         return probas
     
     def save(self, filepath):

@@ -1,161 +1,154 @@
 """
-Utilities for managing model versions and documentation
+Utilities for managing experiment directories and generated summaries.
 """
-import os
 import json
+import os
 from datetime import datetime
+
 import config
 
 
-def create_version_directory(version_name=None):
-    """Create a new version directory"""
+def create_version_directory(version_name=None, metadata=None):
+    """Create a version directory and persist experiment metadata when provided."""
     if version_name is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        version_name = f"v_{timestamp}"
-    
+        version_name = f"v_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
     version_dir = os.path.join(config.VERSIONS_DIR, version_name)
-    os.makedirs(version_dir, exist_ok=True)
-    
-    # Create subdirectories
+    if os.path.exists(version_dir) and os.listdir(version_dir):
+        version_dir = os.path.join(
+            config.VERSIONS_DIR,
+            f"{version_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
+
     os.makedirs(os.path.join(version_dir, 'models'), exist_ok=True)
     os.makedirs(os.path.join(version_dir, 'plots'), exist_ok=True)
     os.makedirs(os.path.join(version_dir, 'metrics'), exist_ok=True)
-    
+
+    if metadata:
+        with open(
+            os.path.join(version_dir, 'experiment_metadata.json'),
+            'w',
+            encoding='utf-8'
+        ) as handle:
+            json.dump(metadata, handle, indent=4, ensure_ascii=False)
+
     return version_dir
 
 
-def generate_readme(version_dir, metrics_list, notes=""):
-    """Generate README.md for version"""
-    
+def generate_readme(version_dir, metrics_list, notes="", metadata=None):
+    """Generate a concise experiment README using measured results only."""
     readme_path = os.path.join(version_dir, 'README.md')
-    
-    # Calculate summary statistics
-    best_model = max(metrics_list, key=lambda x: x['accuracy'])
-    avg_accuracy = sum(m['accuracy'] for m in metrics_list) / len(metrics_list)
-    
-    # Get ensemble metrics if exists
-    ensemble_metrics = next((m for m in metrics_list if 'ensemble' in m['model_name'].lower()), None)
-    
-    content = f"""# Thai Depression Classification - {os.path.basename(version_dir)}
+    experiment_name = os.path.basename(version_dir)
+
+    if not metrics_list:
+        content = f"""# Thai Depression Classification - {experiment_name}
 
 ## Overview
 Training run completed on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
-## Performance Summary
-
-### Target
-- **Target Accuracy**: {config.TARGET_ACCURACY * 100}%
-
-### Results
-- **Best Single Model**: {best_model['model_name']} ({best_model['accuracy']:.4f})
-- **Average Accuracy**: {avg_accuracy:.4f}
+No model metrics were generated for this run.
 """
-    
+        with open(readme_path, 'w', encoding='utf-8') as handle:
+            handle.write(content)
+        return readme_path
+
+    best_model = max(metrics_list, key=lambda item: item['accuracy'])
+    avg_accuracy = sum(item['accuracy'] for item in metrics_list) / len(metrics_list)
+    ensemble_metrics = next(
+        (item for item in metrics_list if item['model_name'] == 'Ensemble_Stacking'),
+        None
+    )
+
+    lines = [
+        f"# Thai Depression Classification - {experiment_name}",
+        "",
+        "## Overview",
+        f"Training run completed on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        "",
+        "## Performance Summary",
+        f"- **Best Single Model**: {best_model['model_name']} ({best_model['accuracy']:.4f})",
+        f"- **Average Accuracy**: {avg_accuracy:.4f}",
+    ]
+
     if ensemble_metrics:
-        content += f"- **Ensemble Accuracy**: {ensemble_metrics['accuracy']:.4f} {'✅ TARGET MET!' if ensemble_metrics['accuracy'] >= config.TARGET_ACCURACY else '❌ Below target'}\n"
-    
-    content += f"""
-## Individual Model Performance
+        lines.append(f"- **Ensemble Accuracy**: {ensemble_metrics['accuracy']:.4f}")
 
-| Model | Accuracy | Precision | Recall | F1 Score | AUC-ROC |
-|-------|----------|-----------|--------|----------|---------|
-"""
-    
-    for metrics in sorted(metrics_list, key=lambda x: x['accuracy'], reverse=True):
-        auc = metrics.get('auc_roc', 'N/A')
+    lines.extend([
+        "",
+        "## Individual Model Performance",
+        "",
+        "| Model | Accuracy | Precision | Recall | F1 Score | AUC-ROC |",
+        "|---|---:|---:|---:|---:|---:|",
+    ])
+
+    for metric in sorted(metrics_list, key=lambda item: item['accuracy'], reverse=True):
+        auc = metric.get('auc_roc', 'N/A')
         if isinstance(auc, float):
             auc = f"{auc:.4f}"
-        content += f"| {metrics['model_name']} | {metrics['accuracy']:.4f} | {metrics['precision']:.4f} | {metrics['recall']:.4f} | {metrics['f1_score']:.4f} | {auc} |\n"
-    
-    content += f"""
-## Models Used
+        lines.append(
+            f"| {metric['model_name']} | {metric['accuracy']:.4f} | "
+            f"{metric['precision']:.4f} | {metric['recall']:.4f} | "
+            f"{metric['f1_score']:.4f} | {auc} |"
+        )
 
-1. **Support Vector Machine (SVM)** - GPU-accelerated using cuML
-2. **Neural Network** - PyTorch MLP with GPU support
-3. **Deep Learning** - Deep neural network with dropout
-4. **Naive Bayes** - Multinomial Naive Bayes with GPU acceleration
-5. **Bayesian Network** - Neural network with Bayesian principles
-6. **Maximum Entropy** - Logistic Regression (MaxEnt) on GPU
+    lines.extend([
+        "",
+        "## Experiment Configuration",
+    ])
 
-## Ensemble Method
+    if metadata:
+        lines.extend([
+            f"- **Experiment Name**: {metadata.get('experiment_name', experiment_name)}",
+            f"- **Version Name**: {metadata.get('version_name', experiment_name)}",
+            f"- **Preprocessing Mode**: {metadata.get('preprocessing_mode', 'n/a')}",
+            f"- **Loss Mode**: {metadata.get('loss_mode', 'n/a')}",
+            f"- **SVM Policy**: {metadata.get('svm_policy', 'n/a')}",
+        ])
 
-**Stacking Ensemble**: Meta-learner trained on predictions from all 6 base models
+    top_models = sorted(metrics_list, key=lambda item: item['accuracy'], reverse=True)[:3]
+    low_models = sorted(metrics_list, key=lambda item: item['accuracy'])[:3]
 
-## Strengths ✅
+    lines.extend([
+        "",
+        "## Highlights",
+        "- Top-performing models in this run:",
+    ])
+    lines.extend(
+        f"  - {metric['model_name']}: {metric['accuracy']:.4f}"
+        for metric in top_models
+    )
 
-"""
-    
-    # Analyze strengths
-    high_performers = [m for m in metrics_list if m['accuracy'] >= config.TARGET_ACCURACY]
-    if high_performers:
-        content += f"- {len(high_performers)} model(s) achieved target accuracy\n"
-    
-    if ensemble_metrics and ensemble_metrics['accuracy'] >= config.TARGET_ACCURACY:
-        content += "- Ensemble model successfully met target accuracy\n"
-    
-    content += f"- All models trained on GPU for optimal performance\n"
-    content += f"- Comprehensive evaluation metrics and visualizations\n"
-    
-    content += f"""
-## Weaknesses ❌
+    lines.extend([
+        "",
+        "## Cautions",
+        "- Lowest-performing models in this run:",
+    ])
+    lines.extend(
+        f"  - {metric['model_name']}: {metric['accuracy']:.4f}"
+        for metric in low_models
+    )
 
-"""
-    
-    # Analyze weaknesses
-    low_performers = [m for m in metrics_list if m['accuracy'] < config.TARGET_ACCURACY]
-    if low_performers:
-        content += f"- {len(low_performers)} model(s) below target accuracy\n"
-        for m in low_performers[:3]:  # Show top 3 weakest
-            content += f"  - {m['model_name']}: {m['accuracy']:.4f}\n"
-    
-    if ensemble_metrics and ensemble_metrics['accuracy'] < config.TARGET_ACCURACY:
-        content += "- Ensemble model did not achieve target accuracy\n"
-    
-    content += f"""
-## Improvements for Next Version
+    lines.extend([
+        "",
+        "## Notes",
+        notes if notes else "No additional notes for this version.",
+        "",
+        "## Configuration",
+        "",
+        "```python",
+        f"MAX_FEATURES: {config.MAX_FEATURES}",
+        f"BATCH_SIZE: {config.BATCH_SIZE}",
+        f"EPOCHS: {config.EPOCHS}",
+        f"LEARNING_RATE: {config.LEARNING_RATE}",
+        f"DEVICE: {config.DEVICE}",
+        "```",
+        "",
+        "---",
+        "Generated automatically by Thai Depression Classification System",
+    ])
 
-- Fine-tune hyperparameters for underperforming models
-- Experiment with different ensemble techniques (voting, boosting)
-- Try advanced Thai text preprocessing (subword tokenization)
-- Increase model complexity or add more features
-- Use pre-trained Thai language models (WangchanBERTa)
-- Augment training data
+    with open(readme_path, 'w', encoding='utf-8') as handle:
+        handle.write('\n'.join(lines) + '\n')
 
-## Files
-
-### Models
-- All trained models saved in `models/` directory
-- Models can be loaded for inference or further training
-
-### Visualizations
-- Confusion matrices for each model
-- ROC curves showing model discrimination
-- Model comparison charts
-
-### Metrics
-- Detailed JSON files with all evaluation metrics
-- Classification reports for each model
-
-## Notes
-
-{notes if notes else "No additional notes for this version."}
-
-## Configuration
-
-```python
-MAX_FEATURES: {config.MAX_FEATURES}
-BATCH_SIZE: {config.BATCH_SIZE}
-EPOCHS: {config.EPOCHS}
-LEARNING_RATE: {config.LEARNING_RATE}
-DEVICE: {config.DEVICE}
-```
-
----
-Generated automatically by Thai Depression Classification System
-"""
-    
-    with open(readme_path, 'w', encoding='utf-8') as f:
-        f.write(content)
-    
-    print(f"📝 Generated README: {readme_path}")
+    print(f"Generated README: {readme_path}")
     return readme_path
