@@ -1,0 +1,21 @@
+{
+    "model_name": "Neural_Network",
+    "accuracy": 0.7403788634097707,
+    "precision": 0.7403515470333942,
+    "recall": 0.7403788634097707,
+    "f1_score": 0.7402915364475046,
+    "auc_roc": 0.8189827174214707,
+    "timestamp": "20260401_000228",
+    "version": "factorial_model_specific-bce",
+    "experiment_name": "factorial_model_specific-bce",
+    "version_name": "factorial_model_specific-bce",
+    "preprocessing_mode": "model_specific",
+    "loss_mode": "bce",
+    "svm_policy": "freeze_v1_2",
+    "run_timestamp": "20260401_000132",
+    "version_dir": "C:\\Users\\kaith\\OneDrive\\เดสก์ท็อป\\cmu\\cmu-post-ml\\versions\\factorial_model_specific-bce",
+    "model_variant": "shared_tfidf",
+    "uses_loss_factor": true,
+    "display_loss_mode": "bce",
+    "svm_freeze_applied": false
+}

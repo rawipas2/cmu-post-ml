@@ -1,0 +1,21 @@
+{
+    "model_name": "SVM",
+    "accuracy": 0.511864406779661,
+    "precision": 0.2620051709278943,
+    "recall": 0.511864406779661,
+    "f1_score": 0.3465987687162727,
+    "auc_roc": 0.7899256621880021,
+    "timestamp": "20260331_235738",
+    "version": "factorial_shared-focal",
+    "experiment_name": "factorial_shared-focal",
+    "version_name": "factorial_shared-focal",
+    "preprocessing_mode": "shared",
+    "loss_mode": "focal",
+    "svm_policy": "freeze_v1_2",
+    "run_timestamp": "20260331_235724",
+    "version_dir": "C:\\Users\\kaith\\OneDrive\\เดสก์ท็อป\\cmu\\cmu-post-ml\\versions\\factorial_shared-focal",
+    "model_variant": "shared_frozen_v1_2",
+    "uses_loss_factor": false,
+    "display_loss_mode": "n/a",
+    "svm_freeze_applied": true
+}

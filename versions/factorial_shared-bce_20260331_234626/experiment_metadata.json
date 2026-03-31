@@ -1,0 +1,8 @@
+{
+    "experiment_name": "factorial_shared-bce",
+    "version_name": "factorial_shared-bce",
+    "preprocessing_mode": "shared",
+    "loss_mode": "bce",
+    "svm_policy": "freeze_v1_2",
+    "run_timestamp": "20260331_234626"
+}

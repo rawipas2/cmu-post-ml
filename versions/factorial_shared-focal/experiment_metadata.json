@@ -1,0 +1,8 @@
+{
+    "experiment_name": "factorial_shared-focal",
+    "version_name": "factorial_shared-focal",
+    "preprocessing_mode": "shared",
+    "loss_mode": "focal",
+    "svm_policy": "freeze_v1_2",
+    "run_timestamp": "20260331_235724"
+}

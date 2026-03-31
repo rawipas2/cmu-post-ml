@@ -1,0 +1,21 @@
+{
+    "model_name": "Naive_Bayes",
+    "accuracy": 0.7535393818544367,
+    "precision": 0.7535147864279717,
+    "recall": 0.7535393818544367,
+    "f1_score": 0.7534690252330382,
+    "auc_roc": 0.8356252593882639,
+    "timestamp": "20260331_235426",
+    "version": "factorial_shared-bce",
+    "experiment_name": "factorial_shared-bce",
+    "version_name": "factorial_shared-bce",
+    "preprocessing_mode": "shared",
+    "loss_mode": "bce",
+    "svm_policy": "freeze_v1_2",
+    "run_timestamp": "20260331_234626",
+    "version_dir": "C:\\Users\\kaith\\OneDrive\\เดสก์ท็อป\\cmu\\cmu-post-ml\\versions\\factorial_shared-bce_20260331_234626",
+    "model_variant": "shared_tfidf",
+    "uses_loss_factor": false,
+    "display_loss_mode": "n/a",
+    "svm_freeze_applied": false
+}

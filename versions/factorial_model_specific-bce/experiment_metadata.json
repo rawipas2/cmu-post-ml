@@ -1,0 +1,8 @@
+{
+    "experiment_name": "factorial_model_specific-bce",
+    "version_name": "factorial_model_specific-bce",
+    "preprocessing_mode": "model_specific",
+    "loss_mode": "bce",
+    "svm_policy": "freeze_v1_2",
+    "run_timestamp": "20260401_000132"
+}
