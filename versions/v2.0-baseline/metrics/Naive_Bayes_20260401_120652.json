@@ -1,0 +1,37 @@
+{
+    "model_name": "Naive_Bayes",
+    "accuracy": 0.7617148554336989,
+    "precision": 0.7616948234481841,
+    "recall": 0.7617148554336989,
+    "f1_score": 0.7616487873087051,
+    "auc_roc": 0.8458868500653085,
+    "timestamp": "20260401_120652",
+    "version": "v2.0-baseline",
+    "experiment_name": "v2.0-baseline",
+    "version_name": "v2.0-baseline",
+    "preprocessing_mode": "model_specific",
+    "loss_mode": "focal",
+    "svm_policy": "freeze_v1_2",
+    "use_augmentation": false,
+    "aug_per_sample": 1,
+    "balance_classes": true,
+    "run_timestamp": "20260401_115119",
+    "original_train_size": 25077,
+    "augmented_train_size": 25077,
+    "augmentation_config": {
+        "enabled": false,
+        "aug_per_sample": 1,
+        "balance_classes": true,
+        "methods": [
+            "delete",
+            "swap",
+            "synonym",
+            "insert"
+        ]
+    },
+    "version_dir": "C:\\Users\\kaith\\OneDrive\\เดสก์ท็อป\\cmu\\cmu-post-ml\\versions\\v2.0-baseline",
+    "model_variant": "count_unigram",
+    "uses_loss_factor": false,
+    "display_loss_mode": "n/a",
+    "svm_freeze_applied": false
+}

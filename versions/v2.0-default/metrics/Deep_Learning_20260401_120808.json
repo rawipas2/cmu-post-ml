@@ -1,0 +1,37 @@
+{
+    "model_name": "Deep_Learning",
+    "accuracy": 0.7395812562313061,
+    "precision": 0.7471066626390112,
+    "recall": 0.7395812562313061,
+    "f1_score": 0.7366971883552879,
+    "auc_roc": 0.8204959217163037,
+    "timestamp": "20260401_120808",
+    "version": "v2.0-default",
+    "experiment_name": "v2.0-default",
+    "version_name": "v2.0-default",
+    "preprocessing_mode": "model_specific",
+    "loss_mode": "focal",
+    "svm_policy": "freeze_v1_2",
+    "use_augmentation": true,
+    "aug_per_sample": 1,
+    "balance_classes": true,
+    "run_timestamp": "20260401_115149",
+    "original_train_size": 25077,
+    "augmented_train_size": 25674,
+    "augmentation_config": {
+        "enabled": true,
+        "aug_per_sample": 1,
+        "balance_classes": true,
+        "methods": [
+            "delete",
+            "swap",
+            "synonym",
+            "insert"
+        ]
+    },
+    "version_dir": "C:\\Users\\kaith\\OneDrive\\เดสก์ท็อป\\cmu\\cmu-post-ml\\versions\\v2.0-default",
+    "model_variant": "shared_tfidf",
+    "uses_loss_factor": true,
+    "display_loss_mode": "focal",
+    "svm_freeze_applied": false
+}

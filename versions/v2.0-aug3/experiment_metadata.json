@@ -1,0 +1,24 @@
+{
+    "experiment_name": "v2.0-aug3",
+    "version_name": "v2.0-aug3",
+    "preprocessing_mode": "model_specific",
+    "loss_mode": "focal",
+    "svm_policy": "freeze_v1_2",
+    "use_augmentation": true,
+    "aug_per_sample": 3,
+    "balance_classes": true,
+    "run_timestamp": "20260401_115249",
+    "original_train_size": 25077,
+    "augmented_train_size": 26868,
+    "augmentation_config": {
+        "enabled": true,
+        "aug_per_sample": 3,
+        "balance_classes": true,
+        "methods": [
+            "delete",
+            "swap",
+            "synonym",
+            "insert"
+        ]
+    }
+}

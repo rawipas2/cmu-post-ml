@@ -1,0 +1,37 @@
+{
+    "model_name": "SVM",
+    "accuracy": 0.511864406779661,
+    "precision": 0.2620051709278943,
+    "recall": 0.511864406779661,
+    "f1_score": 0.3465987687162727,
+    "auc_roc": 0.7907830756637158,
+    "timestamp": "20260401_115159",
+    "version": "v2.0-default",
+    "experiment_name": "v2.0-default",
+    "version_name": "v2.0-default",
+    "preprocessing_mode": "model_specific",
+    "loss_mode": "focal",
+    "svm_policy": "freeze_v1_2",
+    "use_augmentation": true,
+    "aug_per_sample": 1,
+    "balance_classes": true,
+    "run_timestamp": "20260401_115149",
+    "original_train_size": 25077,
+    "augmented_train_size": 25674,
+    "augmentation_config": {
+        "enabled": true,
+        "aug_per_sample": 1,
+        "balance_classes": true,
+        "methods": [
+            "delete",
+            "swap",
+            "synonym",
+            "insert"
+        ]
+    },
+    "version_dir": "C:\\Users\\kaith\\OneDrive\\เดสก์ท็อป\\cmu\\cmu-post-ml\\versions\\v2.0-default",
+    "model_variant": "shared_frozen_v1_2",
+    "uses_loss_factor": false,
+    "display_loss_mode": "n/a",
+    "svm_freeze_applied": true
+}

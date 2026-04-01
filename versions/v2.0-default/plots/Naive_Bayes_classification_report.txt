@@ -1,0 +1,8 @@
+               precision    recall  f1-score   support
+
+   depression     0.7643    0.7616    0.7629      2567
+no_depression     0.7509    0.7537    0.7523      2448
+
+     accuracy                         0.7577      5015
+    macro avg     0.7576    0.7576    0.7576      5015
+ weighted avg     0.7578    0.7577    0.7577      5015

@@ -1,0 +1,44 @@
+{
+    "model_name": "Ensemble_Stacking",
+    "accuracy": 0.7423728813559322,
+    "precision": 0.7425046965207924,
+    "recall": 0.7423728813559322,
+    "f1_score": 0.7421546337909632,
+    "auc_roc": 0.8225595701856901,
+    "timestamp": "20260401_121625",
+    "version": "v2.0-baseline",
+    "experiment_name": "v2.0-baseline",
+    "version_name": "v2.0-baseline",
+    "preprocessing_mode": "model_specific",
+    "loss_mode": "focal",
+    "svm_policy": "freeze_v1_2",
+    "use_augmentation": false,
+    "aug_per_sample": 1,
+    "balance_classes": true,
+    "run_timestamp": "20260401_115119",
+    "original_train_size": 25077,
+    "augmented_train_size": 25077,
+    "augmentation_config": {
+        "enabled": false,
+        "aug_per_sample": 1,
+        "balance_classes": true,
+        "methods": [
+            "delete",
+            "swap",
+            "synonym",
+            "insert"
+        ]
+    },
+    "version_dir": "C:\\Users\\kaith\\OneDrive\\เดสก์ท็อป\\cmu\\cmu-post-ml\\versions\\v2.0-baseline",
+    "model_variant": "stacked_predictions",
+    "uses_loss_factor": true,
+    "display_loss_mode": "focal",
+    "base_models": [
+        "SVM",
+        "Neural_Network",
+        "Deep_Learning",
+        "Naive_Bayes",
+        "Bayesian_Network",
+        "Maximum_Entropy"
+    ]
+}

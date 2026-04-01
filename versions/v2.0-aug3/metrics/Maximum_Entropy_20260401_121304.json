@@ -1,0 +1,37 @@
+{
+    "model_name": "Maximum_Entropy",
+    "accuracy": 0.7206380857427717,
+    "precision": 0.775994892181861,
+    "recall": 0.7206380857427717,
+    "f1_score": 0.7035929793655729,
+    "auc_roc": 0.846541765647955,
+    "timestamp": "20260401_121304",
+    "version": "v2.0-aug3",
+    "experiment_name": "v2.0-aug3",
+    "version_name": "v2.0-aug3",
+    "preprocessing_mode": "model_specific",
+    "loss_mode": "focal",
+    "svm_policy": "freeze_v1_2",
+    "use_augmentation": true,
+    "aug_per_sample": 3,
+    "balance_classes": true,
+    "run_timestamp": "20260401_115249",
+    "original_train_size": 25077,
+    "augmented_train_size": 26868,
+    "augmentation_config": {
+        "enabled": true,
+        "aug_per_sample": 3,
+        "balance_classes": true,
+        "methods": [
+            "delete",
+            "swap",
+            "synonym",
+            "insert"
+        ]
+    },
+    "version_dir": "C:\\Users\\kaith\\OneDrive\\เดสก์ท็อป\\cmu\\cmu-post-ml\\versions\\v2.0-aug3",
+    "model_variant": "shared_tfidf",
+    "uses_loss_factor": true,
+    "display_loss_mode": "focal",
+    "svm_freeze_applied": false
+}
