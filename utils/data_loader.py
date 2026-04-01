@@ -11,6 +11,7 @@ from sklearn.feature_selection import chi2, SelectKBest
 from pythainlp.tokenize import word_tokenize
 from typing import Tuple, List, Dict, Optional
 import config
+from .augmentation import augment_dataset
 
 
 class ThaiTextPreprocessor:
@@ -108,8 +109,12 @@ class ThaiTextPreprocessor:
         return self.label_encoder.inverse_transform(encoded_labels)
 
 
-def load_all_data():
-    """Load and preprocess all datasets"""
+def load_all_data(
+    use_augmentation: bool = True,
+    aug_per_sample: int = 1,
+    balance_classes: bool = True
+):
+    """Load and preprocess all datasets."""
     preprocessor = ThaiTextPreprocessor()
     
     # Load data
@@ -121,6 +126,28 @@ def load_all_data():
     print(f"   Train: {len(train_texts)} samples")
     print(f"   Valid: {len(valid_texts)} samples")
     print(f"   Test: {len(test_texts)} samples")
+
+    original_train_size = len(train_texts)
+    augmentation_config = {
+        'enabled': use_augmentation,
+        'aug_per_sample': aug_per_sample,
+        'balance_classes': balance_classes,
+        'methods': ['delete', 'swap', 'synonym', 'insert'],
+    }
+
+    if use_augmentation:
+        print("   Applying ThaiTextAugmenter to training split...")
+        train_texts, train_labels = augment_dataset(
+            train_texts,
+            train_labels,
+            aug_per_sample=aug_per_sample,
+            balance_classes=balance_classes
+        )
+    else:
+        print("   Augmentation disabled. Using original training split.")
+
+    augmented_train_size = len(train_texts)
+    print(f"   Training samples after augmentation: {augmented_train_size}")
     
     # Preprocess texts
     print("🔤 Tokenizing Thai text...")
@@ -166,7 +193,11 @@ def load_all_data():
         'preprocessor': preprocessor,
         'train_texts': train_texts_processed,
         'valid_texts': valid_texts_processed,
-        'test_texts': test_texts_processed
+        'test_texts': test_texts_processed,
+        'original_train_size': original_train_size,
+        'augmented_train_size': augmented_train_size,
+        'augmentation_enabled': use_augmentation,
+        'augmentation_config': augmentation_config,
     }
 
 

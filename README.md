@@ -123,16 +123,43 @@ thai-depression/
 ```bash
 # รัน training pipeline
 python train.py
+
+# Baseline run without augmentation
+python train.py --no-augmentation
+
+# Custom augmentation intensity
+python train.py --aug-per-sample 2 --no-balance-classes
 ```
 
 Script จะทำการ:
 
-1. โหลดและ preprocess ข้อมูล
-2. Train แต่ละ model ทั้ง 6 ตัว
-3. Train ensemble stacking model
-4. สร้างกราฟและสถิติ
-5. บันทึก models และผลลัพธ์
-6. สร้าง README.md สำหรับ version นั้นๆ
+1. โหลดและ augment training split (v2.0 default)
+2. โหลดและ preprocess ข้อมูล
+3. Train แต่ละ model ทั้ง 6 ตัว
+4. Train ensemble stacking model
+5. สร้างกราฟและสถิติ
+6. บันทึก models และผลลัพธ์
+7. สร้าง README.md สำหรับ version นั้นๆ
+
+### v2.0 Augmentation Controls
+
+- `--use-augmentation` / `--no-augmentation`
+- `--aug-per-sample <int>`
+- `--balance-classes` / `--no-balance-classes`
+
+Default behavior in `v2.0`:
+
+- augmentation enabled
+- `aug_per_sample=1`
+- `balance_classes=True`
+- augmentation applied only to the training split
+
+Generated metrics and README files now record:
+
+- augmentation enabled/disabled
+- augmentation intensity
+- class balancing mode
+- original vs final training sample counts
 
 ### การปรับแต่ง Hyperparameters
 

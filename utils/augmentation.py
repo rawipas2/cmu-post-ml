@@ -197,7 +197,7 @@ def augment_dataset(texts: List[str], labels: List[str],
     Returns:
         Augmented texts and labels
     """
-    from collections import Counter
+    from collections import Counter, defaultdict
     
     augmenter = ThaiTextAugmenter()
     
@@ -208,21 +208,31 @@ def augment_dataset(texts: List[str], labels: List[str],
         # Count class distribution
         counter = Counter(labels)
         max_count = max(counter.values())
-        
-        # Augment minority classes more
+
+        samples_by_label = defaultdict(list)
         for text, label in zip(texts, labels):
-            # Add original
             aug_texts.append(text)
             aug_labels.append(label)
-            
-            # Calculate how many augmentations needed
-            class_count = counter[label]
-            n_aug = int((max_count / class_count - 1) * aug_per_sample)
-            
-            if n_aug > 0:
-                augmented = augmenter.augment(text, n_aug=n_aug)
-                aug_texts.extend(augmented)
-                aug_labels.extend([label] * n_aug)
+            samples_by_label[label].append(text)
+
+        if aug_per_sample > 0:
+            # Distribute only the required number of extra samples to minority classes.
+            for label, label_texts in samples_by_label.items():
+                class_count = counter[label]
+                if class_count >= max_count:
+                    continue
+
+                total_aug_needed = (max_count - class_count) * aug_per_sample
+                base_aug = total_aug_needed // class_count
+                remainder = total_aug_needed % class_count
+
+                for idx, text in enumerate(label_texts):
+                    n_aug = base_aug + (1 if idx < remainder else 0)
+                    if n_aug <= 0:
+                        continue
+                    augmented = augmenter.augment(text, n_aug=n_aug)
+                    aug_texts.extend(augmented)
+                    aug_labels.extend([label] * n_aug)
     else:
         # Uniform augmentation
         for text, label in zip(texts, labels):

@@ -64,19 +64,62 @@ def parse_args():
         default='factorial',
         help='Prefix used when building the experiment folder name.'
     )
-    return parser.parse_args()
+    augmentation_group = parser.add_mutually_exclusive_group()
+    augmentation_group.add_argument(
+        '--use-augmentation',
+        dest='use_augmentation',
+        action='store_true',
+        help='Enable ThaiTextAugmenter on the training split.'
+    )
+    augmentation_group.add_argument(
+        '--no-augmentation',
+        dest='use_augmentation',
+        action='store_false',
+        help='Disable ThaiTextAugmenter and use the original training split.'
+    )
+    parser.set_defaults(use_augmentation=True)
+    parser.add_argument(
+        '--aug-per-sample',
+        type=int,
+        default=1,
+        help='Base number of augmented samples generated per training sample.'
+    )
+    balance_group = parser.add_mutually_exclusive_group()
+    balance_group.add_argument(
+        '--balance-classes',
+        dest='balance_classes',
+        action='store_true',
+        help='Augment minority classes more aggressively.'
+    )
+    balance_group.add_argument(
+        '--no-balance-classes',
+        dest='balance_classes',
+        action='store_false',
+        help='Disable class balancing and use uniform augmentation.'
+    )
+    parser.set_defaults(balance_classes=True)
+    args = parser.parse_args()
+    if args.aug_per_sample < 0:
+        parser.error('--aug-per-sample must be >= 0')
+    return args
 
 
 def build_experiment(args):
-    experiment_name = args.experiment_name or (
-        f"{args.version_prefix}_{args.preprocessing_mode}-{args.loss_mode}"
-    )
+    if args.experiment_name:
+        experiment_name = args.experiment_name
+    elif args.version_prefix != 'factorial':
+        experiment_name = f"{args.version_prefix}_{args.preprocessing_mode}-{args.loss_mode}"
+    else:
+        experiment_name = config.CURRENT_VERSION
     return {
         'experiment_name': experiment_name,
         'version_name': experiment_name,
         'preprocessing_mode': args.preprocessing_mode,
         'loss_mode': args.loss_mode,
         'svm_policy': args.svm_policy,
+        'use_augmentation': args.use_augmentation,
+        'aug_per_sample': args.aug_per_sample,
+        'balance_classes': args.balance_classes,
         'run_timestamp': datetime.now().strftime("%Y%m%d_%H%M%S"),
     }
 
@@ -293,12 +336,22 @@ def build_notes(data, experiment, model_outputs):
         f"This run used preprocessing_mode={experiment['preprocessing_mode']}, "
         f"loss_mode={experiment['loss_mode']}, svm_policy={experiment['svm_policy']}.",
         "",
+        f"v2.0 default recipe keeps ThaiTextAugmenter {'enabled' if experiment['use_augmentation'] else 'disabled'} "
+        f"for the training split.",
+        "",
         "## Training Details",
         f"- Total samples trained: {len(data['y_train'])}",
+        f"- Original train samples: {data['original_train_size']}",
+        f"- Final train samples after augmentation: {data['augmented_train_size']}",
         f"- Validation samples: {len(data['y_valid'])}",
         f"- Test samples: {len(data['y_test'])}",
         f"- Shared feature dimension: {data['X_train'].shape[1]}",
         f"- Models successfully trained: {len(model_outputs)}",
+        "",
+        "## Augmentation",
+        f"- Enabled: {experiment['use_augmentation']}",
+        f"- Augment per sample: {experiment['aug_per_sample']}",
+        f"- Balance classes: {experiment['balance_classes']}",
     ]
 
     if (
@@ -320,13 +373,23 @@ def main():
     experiment = build_experiment(args)
 
     print("\n" + "=" * 80)
-    print("Thai Depression Classification - Factorial Experiment Runner")
+    print("Thai Depression Classification - v2.0 Training Runner")
     print("=" * 80 + "\n")
     print(
         f"Experiment: {experiment['experiment_name']} | "
         f"preprocessing={experiment['preprocessing_mode']} | "
-        f"loss={experiment['loss_mode']} | svm_policy={experiment['svm_policy']}"
+        f"loss={experiment['loss_mode']} | svm_policy={experiment['svm_policy']} | "
+        f"augmentation={experiment['use_augmentation']}"
     )
+
+    data = load_all_data(
+        use_augmentation=experiment['use_augmentation'],
+        aug_per_sample=experiment['aug_per_sample'],
+        balance_classes=experiment['balance_classes']
+    )
+    experiment['original_train_size'] = data['original_train_size']
+    experiment['augmented_train_size'] = data['augmented_train_size']
+    experiment['augmentation_config'] = data['augmentation_config']
 
     version_dir = create_version_directory(
         experiment['version_name'],
@@ -335,7 +398,6 @@ def main():
     experiment['version_dir'] = version_dir
     print(f"Version directory: {version_dir}\n")
 
-    data = load_all_data()
     preprocessor = data['preprocessor']
     datasets = get_model_datasets(data, preprocessor, experiment)
 

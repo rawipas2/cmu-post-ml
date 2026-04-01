@@ -42,7 +42,7 @@ META_MODEL_LR = 0.0005  # ปรับกลับ
 META_HIDDEN_DIM = 128  # ปรับกลับ
 
 # Version management
-CURRENT_VERSION = "v1.2.2"
+CURRENT_VERSION = "v2.0"
 
 # Target accuracy
 TARGET_ACCURACY = 0.80

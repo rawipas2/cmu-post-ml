@@ -103,7 +103,15 @@ No model metrics were generated for this run.
             f"- **Preprocessing Mode**: {metadata.get('preprocessing_mode', 'n/a')}",
             f"- **Loss Mode**: {metadata.get('loss_mode', 'n/a')}",
             f"- **SVM Policy**: {metadata.get('svm_policy', 'n/a')}",
+            f"- **Augmentation Enabled**: {metadata.get('use_augmentation', 'n/a')}",
+            f"- **Augment Per Sample**: {metadata.get('aug_per_sample', 'n/a')}",
+            f"- **Balance Classes**: {metadata.get('balance_classes', 'n/a')}",
         ])
+        if 'original_train_size' in metadata and 'augmented_train_size' in metadata:
+            lines.extend([
+                f"- **Train Samples (Original)**: {metadata['original_train_size']}",
+                f"- **Train Samples (Final)**: {metadata['augmented_train_size']}",
+            ])
 
     top_models = sorted(metrics_list, key=lambda item: item['accuracy'], reverse=True)[:3]
     low_models = sorted(metrics_list, key=lambda item: item['accuracy'])[:3]
